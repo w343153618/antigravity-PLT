@@ -83,27 +83,27 @@ it('renders only the login form before authentication and rejects unknown server
 });
 
 it.each([
-  ['user', 'client', '客户工作台'], ['dianzhang', 'manager', '店长工作台'], ['admin', 'hq', '总部管理后台'],
+  ['user', 'client', '我的'], ['dianzhang', 'manager', '门店'], ['admin', 'hq', '总部'],
 ])('mounts only the authorized workspace for %s, including hidden dialogs', async (username, role, title) => {
   const browser = await harness();
   await browser.login(username!);
   expect(browser.state.session.value?.role).toBe(role);
   const html = await browser.render();
-  expect(html).toContain(title!);
+  expect(html).toContain(`<h1>${title}</h1>`);
   expect(html).not.toContain('角色切换');
   expect(html).not.toContain('登录工作台');
   if (role === 'client') {
     expect(html).toContain('个人往来对账结余');
-    for (const absent of ['id="order-title"', 'id="adjustment-form"', '建立客户档案', '累计客户归属']) expect(html).not.toContain(absent);
+    for (const absent of ['id="order-title"', 'id="adjustment-form"', '建立客户档案', '客户归属']) expect(html).not.toContain(absent);
     expect(browser.calls.some(path => path.startsWith('/api/stores/') || path.startsWith('/api/hq/'))).toBe(false);
   } else if (role === 'manager') {
     expect(html).toContain('id="adjustment-form"');
     expect(html).toContain('id="order-title"');
-    expect(html).not.toContain('累计客户归属');
+    expect(html).not.toContain('客户归属');
     expect(html).not.toContain('个人往来对账结余');
     expect(browser.calls.some(path => path.startsWith('/api/hq/') || path.startsWith('/api/portfolios/') || path.startsWith('/api/calendar'))).toBe(false);
   } else {
-    expect(html).toContain('累计客户归属');
+    expect(html).toContain('客户归属');
     expect(html).not.toContain('id="adjustment-form"');
     expect(html).not.toContain('id="order-title"');
     expect(html).not.toContain('个人往来对账结余');
