@@ -128,10 +128,13 @@
               <div class="client-strategy-quick" style="background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px; margin-bottom: 28px;">
                 <div class="section-heading" style="margin-bottom: 14px;">
                   <div>
-                    <h2 style="font-size: 1.15rem;">今日排列三精选推荐</h2>
-                    <p class="muted small">每日总部精选三组，支持一键跟单</p>
+                    <h2 style="font-size: 1.15rem;">今日排列三精选推荐与自选投注</h2>
+                    <p class="muted small">每日精选三组支持一键跟单 · 也支持任意号码自主投注</p>
                   </div>
-                  <button type="button" class="text-button" @click="view = 'today'">进入策略专页 <span aria-hidden="true">→</span></button>
+                  <div style="display: flex; gap: 10px; align-items: center;">
+                    <button type="button" class="primary" style="padding: 4px 12px; font-size: 0.82rem;" @click="openCustomOrder">🎯 自主选号投注</button>
+                    <button type="button" class="text-button" @click="view = 'today'">进入策略专页 <span aria-hidden="true">→</span></button>
+                  </div>
                 </div>
                 <div v-if="portfolio && portfolio.date === bootstrap.today" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
                   <div v-for="(combo, index) in portfolio.combos" :key="index" style="padding: 16px; background: var(--canvas); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
@@ -182,9 +185,10 @@
               <section class="records-section"><div class="section-heading"><h2>累计客户归属</h2><span class="muted small">按门店 / 店长</span></div><div v-if="!attributionTotals.length" class="empty compact"><p>暂无归属汇总。</p></div><div v-else class="table-scroll" tabindex="0" aria-label="累计归属汇总表"><table><thead><tr><th>门店</th><th>归属店长</th><th class="numeric">客户档案数</th></tr></thead><tbody><tr v-for="item in attributionTotals" :key="item.storeId + item.managerId"><td>{{ storeName(item.storeId) }}</td><td>{{ item.managerId ? managerName(item.managerId) : '历史归属待确认' }}</td><td class="numeric">{{ item.clientCount }}</td></tr></tbody></table></div></section>
               <section class="records-section"><div class="section-heading"><h2>按日归属登记统计</h2><span class="muted small">{{ attributionSummary.length }} 条汇总</span></div><div v-if="!attributionSummary.length" class="empty compact"><p>所选日期没有归属登记记录，可切换日期或查看全部日期。</p></div><div v-else class="table-scroll" tabindex="0" aria-label="按日归属登记统计表"><table><thead><tr><th>归属登记日期</th><th>门店 / 店长</th><th class="numeric">新增建档</th><th class="numeric">迁移登记</th><th class="numeric">直接归属</th><th class="numeric">老客户引荐</th><th class="numeric">合计</th></tr></thead><tbody><tr v-for="item in attributionSummary" :key="item.date + item.managerId"><td>{{ item.date }}</td><td>{{ storeName(item.storeId) }}<small>{{ managerName(item.managerId) }}</small></td><td class="numeric">{{ item.newClientCount }}</td><td class="numeric">{{ item.migrationCount }}</td><td class="numeric">{{ item.directCount }}</td><td class="numeric">{{ item.introducedCount }}</td><td class="numeric">{{ item.totalCount }}</td></tr></tbody></table></div></section>
               <section class="records-section"><div class="section-heading"><h2>归属与引荐审计</h2><span class="muted small">{{ audits.length }} 条 · 追加留档</span></div><div v-if="!audits.length" class="empty compact"><p>该范围暂无归属审计。</p></div><div v-else class="table-scroll" tabindex="0" aria-label="归属与引荐审计表"><table><thead><tr><th>客户 / 记录时间</th><th>业务日期</th><th>归属门店 / 店长</th><th>引荐客户</th><th>登记类型 / 说明</th></tr></thead><tbody><tr v-for="item in audits" :key="item.id"><td><strong>{{ clientName(item.clientId) }}</strong><small>{{ dateTime(item.createdAt) }}</small><small>{{ item.id.slice(0,8) }}</small></td><td>{{ item.date }}</td><td>{{ storeName(item.storeId) }}<small>{{ managerName(item.managerId) }}</small></td><td>{{ item.introducedByClientId ? clientName(item.introducedByClientId) : '店长直接建档' }}</td><td class="note-cell"><span :class="['status-tag', item.eventType === 'Migrated' ? 'waiting' : 'settled']">{{ item.eventType === 'Migrated' ? '历史档案迁移' : '新增建档' }}</span><small>{{ item.note }}</small></td></tr></tbody></table></div></section>
+              <section class="records-section"><div class="section-heading"><h2>全量客户投注存根与订单监控</h2><span class="muted small">{{ orders.length }} 笔 · {{ hqDate ? hqDate : '全部日期' }}</span></div><div v-if="!orders.length" class="empty compact"><p>当前日期范围内暂无客户投注存根订单。</p></div><div v-else class="table-scroll" tabindex="0" aria-label="全量投注存根表"><table><thead><tr><th>客户 / 存根</th><th>所属门店 / 店长</th><th>业务日期</th><th>投注标的 / 类型</th><th class="numeric">数量与金额</th><th>开奖核验状态</th><th>纸质凭证存管</th></tr></thead><tbody><tr v-for="item in orders" :key="item.id"><td><strong>{{ clientName(item.clientId) }}</strong><small>{{ item.id.slice(0,8) }}</small></td><td>{{ storeName(item.storeId) }}<small>{{ managerName(item.managerId) }}</small></td><td>{{ item.date }}</td><td><strong class="number-code">{{ item.selectedCode }}</strong><span :class="['status-tag', item.adoptedStrategy ? 'hit-tag' : 'waiting']" style="margin-left: 6px;">{{ item.adoptedStrategy ? '精选跟单' : '自主选号' }}</span></td><td class="numeric">{{ item.quantity }} 注 · {{ money(item.totalAmount) }}</td><td><span v-if="getOrderResolution(item).isResolved" :class="['status-tag', getOrderResolution(item).isHit ? 'hit-tag' : 'miss-tag']">{{ getOrderResolution(item).isHit ? '🎉 命中 (' + getOrderResolution(item).settlementCode + ')' : '未中 (' + getOrderResolution(item).settlementCode + ')' }}</span><span v-else class="status-tag waiting">⏳ 待开奖</span></td><td><span :class="['status-tag', item.voucherStatus === 'Claimed' ? 'settled' : 'waiting']">{{ voucherLabel(item) }}</span></td></tr></tbody></table></div></section>
             </template>
 
-            <section v-if="role !== 'hq'" class="records-section"><div class="section-heading"><h2>{{ role === 'client' ? '个人历史存根与凭证' : '名下客户历史存根与凭证' }}</h2><span class="muted small">{{ orders.length }} 笔 · 表内滚动查看</span></div><div v-if="!orders.length" class="empty"><h3>暂无历史存根</h3><p>{{ role === 'client' ? '店长登记已完成的线下业务后，可在此查询记录与纸质凭证状态。' : '请先建立客户档案，再事后登记已在线下完成的业务。' }}</p></div><div v-else class="table-scroll" tabindex="0" aria-label="历史存根与纸质凭证状态表，可上下及左右滚动"><table><thead><tr><th>客户 / 存根</th><th>日期</th><th>历史标的 / 数量</th><th class="numeric">登记金额</th><th>纸质凭证状态</th><th v-if="role === 'manager'">领取登记</th></tr></thead><tbody><tr v-for="item in orders" :key="item.id"><td><strong>{{ clientName(item.clientId) }}</strong><small>{{ item.id.slice(0,8) }}</small></td><td>{{ item.date }}<small>{{ item.adoptedStrategy ? '历史采纳策略' : '历史自主选择' }}</small></td><td><strong class="number-code">{{ item.selectedCode }}</strong><small>{{ item.quantity }} 组</small></td><td class="numeric">{{ money(item.totalAmount) }}</td><td><span :class="['status-tag', item.voucherStatus === 'Claimed' ? 'settled' : 'waiting']">{{ voucherLabel(item) }}</span><small v-if="item.voucherStatus !== 'Claimed'">可到所属门店领取原件</small></td><td v-if="role === 'manager'"><button v-if="item.voucherStatus !== 'Claimed'" type="button" class="table-action" :disabled="!!pending" @click="claimVoucher(item)">{{ pending === 'voucher-' + item.id ? '记录中…' : '确认客户已领取' }}</button><span v-else class="muted small">领取记录已确认</span></td></tr></tbody></table></div></section>
+            <section v-if="role !== 'hq'" class="records-section"><div class="section-heading"><h2>{{ role === 'client' ? '我的历史投注与跟单记录' : '名下客户历史存根与凭证' }}</h2><span class="muted small">{{ orders.length }} 笔 · 表内滚动查看</span></div><div v-if="!orders.length" class="empty"><h3>暂无历史存根</h3><p>{{ role === 'client' ? '跟单或自主选号后，可在此查询每日投注详情、开奖结果与纸质凭证状态。' : '请先建立客户档案，再事后登记已在线下完成的业务。' }}</p></div><div v-else class="table-scroll" tabindex="0" aria-label="历史存根与纸质凭证状态表，可上下及左右滚动"><table><thead><tr><th>客户 / 存根</th><th>日期</th><th>投注号码 / 模式</th><th class="numeric">数量与金额</th><th>开奖结果</th><th>纸质凭证状态</th><th v-if="role === 'manager'">领取登记</th></tr></thead><tbody><tr v-for="item in orders" :key="item.id"><td><strong>{{ clientName(item.clientId) }}</strong><small>{{ item.id.slice(0,8) }}</small></td><td>{{ item.date }}</td><td><strong class="number-code">{{ item.selectedCode }}</strong><span :class="['status-tag', item.adoptedStrategy ? 'hit-tag' : 'waiting']" style="margin-left: 6px;">{{ item.adoptedStrategy ? '精选跟单' : '自主选号' }}</span></td><td class="numeric">{{ item.quantity }} 组 · {{ money(item.totalAmount) }}</td><td><span v-if="getOrderResolution(item).isResolved" :class="['status-tag', getOrderResolution(item).isHit ? 'hit-tag' : 'miss-tag']">{{ getOrderResolution(item).isHit ? '🎉 命中 (' + getOrderResolution(item).settlementCode + ')' : '未中 (' + getOrderResolution(item).settlementCode + ')' }}</span><span v-else class="status-tag waiting">⏳ 待开奖</span></td><td><span :class="['status-tag', item.voucherStatus === 'Claimed' ? 'settled' : 'waiting']">{{ voucherLabel(item) }}</span><small v-if="item.voucherStatus !== 'Claimed'">可到所属门店领取原件</small></td><td v-if="role === 'manager'"><button v-if="item.voucherStatus !== 'Claimed'" type="button" class="table-action" :disabled="!!pending" @click="claimVoucher(item)">{{ pending === 'voucher-' + item.id ? '记录中…' : '确认客户已领取' }}</button><span v-else class="muted small">领取记录已确认</span></td></tr></tbody></table></div></section>
 
             <section class="records-section"><div class="section-heading"><h2>{{ role === 'client' ? '个人收支对账流水' : role === 'manager' ? '名下客户收支对账流水' : '全量收支对账审计' }}</h2><span class="muted small">{{ ledger.length }} 条 · 追加留档</span></div><div v-if="!ledger.length" class="empty compact"><p>当前范围暂无实际收支调整记录。</p></div><div v-else class="table-scroll" tabindex="0" aria-label="收支对账流水表，可上下及左右滚动"><table><thead><tr><th>客户 / 业务日期</th><th>调整方向</th><th class="numeric">调整金额</th><th class="numeric">调整后结余</th><th>调整原因</th><th>操作店长 / 时间</th></tr></thead><tbody><tr v-for="item in ledger" :key="item.id"><td><strong>{{ clientName(item.clientId) }}</strong><small>{{ item.date }}</small><small v-if="role === 'hq'">{{ storeName(item.storeId) }}</small></td><td><span :class="['status-tag', item.direction === 'ADJUST_IN' ? 'settled' : 'waiting']">{{ item.direction === 'ADJUST_IN' ? '增加结余' : '核减结余' }}</span></td><td class="numeric">{{ item.direction === 'ADJUST_IN' ? '+' : '−' }}{{ money(item.amount) }}</td><td class="numeric">{{ money(item.balanceAfter) }}</td><td class="note-cell">{{ item.note }}</td><td>{{ managerName(item.managerId) }}<small>{{ dateTime(item.createdAt) }}</small><small>{{ item.id.slice(0,8) }}</small></td></tr></tbody></table></div><p class="muted small">记录仅反映已经发生的线下收支；按分核算，核减后的结余不能小于 0。流水保留调整原因与操作人。</p></section>
 
@@ -273,6 +277,43 @@
       </div>
       <button type="submit" class="primary wide" :disabled="!!pending || !client || client.reconciliationBalance < followTotalCost">
         {{ pending === 'follow' ? '正在下单扣款…' : '确认扣款并跟单 (¥' + followTotalCost.toFixed(2) + ')' }}
+      </button>
+    </form>
+  </dialog>
+  <dialog v-if="role === 'client'" ref="customDialog" class="drawer custom-drawer" aria-labelledby="custom-title" @click="$event.target === customDialog && customDialog.close()">
+    <form class="drawer-content" @submit.prevent="submitCustomOrder">
+      <div class="drawer-heading">
+        <div>
+          <h2 id="custom-title">排列三自主选号投注</h2>
+          <p>自选 3 位号码 · 自由设定注数与倍数 · 预付款实时扣减</p>
+        </div>
+        <button type="button" class="icon-button" aria-label="关闭自选弹窗" @click="customDialog.close()" :disabled="!!pending">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <p v-if="formError && failedForm === 'custom-order'" class="notice error" role="alert">{{ formError }}</p>
+      <label>自选 3 位数字号码（000 - 999）
+        <input v-model.trim="customForm.selectedCode" inputmode="numeric" pattern="[0-9]{3}" minlength="3" maxlength="3" required placeholder="例如：890" :disabled="!!pending" style="font-size: 1.5rem; letter-spacing: 4px; text-align: center; font-weight: bold; color: var(--green);">
+      </label>
+      <div class="form-row" style="margin-top: 12px;">
+        <label>购买注数
+          <input v-model.number="customForm.quantity" type="number" min="1" max="1000" step="1" required :disabled="!!pending">
+        </label>
+        <label>倍投（倍数）
+          <input v-model.number="customForm.multiplier" type="number" min="1" max="999" step="1" required :disabled="!!pending">
+        </label>
+      </div>
+      <div class="balance-preview" style="margin-top: 18px;">
+        <span>单注价格 <strong>¥2.00</strong></span>
+        <span>本次需支付 <strong>¥{{ customTotalCost.toFixed(2) }}</strong></span>
+        <span>当前账户余额 <strong>{{ client ? money(client.reconciliationBalance) : '¥0.00' }}</strong></span>
+        <p v-if="client && client.reconciliationBalance < customTotalCost" class="field-error" style="color: #a02432; font-size: 0.88rem; margin-top: 8px;">
+          当前预存余额不足（还缺 ¥{{ (customTotalCost - client.reconciliationBalance).toFixed(2) }}），请联系店长充值后再投注。
+        </p>
+      </div>
+      <p class="muted small" style="margin-top: 12px;">下单后将生成业务存根，实体门店店长将为您在体彩终端出票并存管纸质凭证。</p>
+      <button type="submit" class="primary wide" :disabled="!!pending || !client || client.reconciliationBalance < customTotalCost || !/^[0-9]{3}$/.test(customForm.selectedCode)">
+        {{ pending === 'custom-order' ? '正在投注扣款…' : '确认自主选号并投注 (¥' + customTotalCost.toFixed(2) + ')' }}
       </button>
     </form>
   </dialog>

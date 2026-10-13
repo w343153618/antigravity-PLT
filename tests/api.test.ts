@@ -171,4 +171,46 @@ describe('HTTP application', () => {
       expect(hqRes.json()).toHaveProperty('skipped');
     } finally { await app.close(); }
   });
+
+  it('supports client placing custom order, querying own order history, and allows manager & HQ to query it', async () => {
+    const app = await buildApp({ databasePath: ':memory:', today: '2026-10-13', ...authOptions });
+    try {
+      const clientUser = await login(app, 'user');
+      const managerUser = await login(app, 'dianzhang');
+      const hqUser = await login(app, 'admin');
+
+      // 1. Client places a custom pick order (selectedCode: 777, not in strategy combos)
+      const res = await clientUser.inject({
+        method: 'POST',
+        url: '/api/client/orders',
+        payload: { selectedCode: '777', quantity: 2, multiplier: 3, adoptedStrategy: false },
+      });
+      expect(res.statusCode).toBe(201);
+      const order = res.json();
+      expect(order.selectedCode).toBe('777');
+      expect(order.adoptedStrategy).toBe(false);
+      expect(order.totalAmount).toBe(12); // 2 * 3 * 2 = 12
+
+      // 2. Client queries own order history
+      const clientOrders = (await clientUser.inject(`/api/clients/${clientUser.actor.clientId}/orders`)).json();
+      expect(clientOrders.some((o: { selectedCode: string }) => o.selectedCode === '777')).toBe(true);
+
+      // 3. Manager queries store orders and sees client's custom order
+      const storeOrders = (await managerUser.inject(`/api/stores/${managerUser.actor.storeId}/orders`)).json();
+      expect(storeOrders.some((o: { selectedCode: string }) => o.selectedCode === '777')).toBe(true);
+
+      // 4. HQ queries all platform orders and sees the order
+      const hqOrders = (await hqUser.inject('/api/hq/orders')).json();
+      expect(hqOrders.some((o: { selectedCode: string }) => o.selectedCode === '777')).toBe(true);
+
+      // 5. Manager updates voucher status to Claimed
+      const claimRes = await managerUser.inject({
+        method: 'PATCH',
+        url: `/api/orders/${order.id}/voucher-status`,
+        payload: { voucherStatus: 'Claimed' },
+      });
+      expect(claimRes.statusCode).toBe(200);
+      expect(claimRes.json().voucherStatus).toBe('Claimed');
+    } finally { await app.close(); }
+  });
 });

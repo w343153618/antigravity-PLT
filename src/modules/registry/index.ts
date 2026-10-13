@@ -69,6 +69,15 @@ export function createRegistryModule(db: AppDatabase, stores: StoreModule, strat
       return allOrders().filter((registered) => registered.orderSlip.storeId === storeId
         && (managerId === undefined || registered.managerId === managerId));
     },
+    listAllOrders(filters?: { storeId?: string | undefined; managerId?: string | undefined; date?: string | undefined; clientId?: string | undefined }): RegisteredOrder[] {
+      return allOrders().filter(({ orderSlip, managerId }) => {
+        if (filters?.storeId && orderSlip.storeId !== filters.storeId) return false;
+        if (filters?.managerId && managerId !== filters.managerId) return false;
+        if (filters?.date && orderSlip.date !== filters.date) return false;
+        if (filters?.clientId && orderSlip.clientId !== filters.clientId) return false;
+        return true;
+      });
+    },
     listClientOrders(clientId: string): RegisteredOrder[] {
       if (!stores.getClient(clientId)) throw new DomainError('客户档案不存在', 404);
       return allOrders().filter(({ orderSlip }) => orderSlip.clientId === clientId);

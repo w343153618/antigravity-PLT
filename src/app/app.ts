@@ -39,6 +39,7 @@ const rolePolicies = new Map<string, readonly Actor['role'][]>([
   ['POST /api/client/orders', ['client']],
   ['GET /api/hq/attribution-audits', ['hq']],
   ['GET /api/hq/reconciliations', ['hq']],
+  ['GET /api/hq/orders', ['hq']],
 ]);
 const publicRoutes = new Set(['GET /api/health', 'POST /api/auth/login', 'POST /api/auth/logout']);
 
@@ -244,6 +245,10 @@ export async function buildApp(options: AppOptions = {}) {
     }
 
     const today = currentDate();
+    const portfolio = strategy.getPortfolio(today);
+    const matchesStrategy = portfolio?.combos.some(c => c.code === input.selectedCode) ?? false;
+    const adoptedStrategy = Boolean(input.adoptedStrategy && matchesStrategy);
+
     const order = db.transaction(() => {
       // 1. 扣减预存余额并写入对账流水
       reconciliation.adjust({
@@ -252,9 +257,9 @@ export async function buildApp(options: AppOptions = {}) {
         date: today,
         direction: 'ADJUST_OUT',
         amount: totalCost,
-        note: `跟单扣款：排列三 ${input.selectedCode} × ${input.quantity}注 × ${input.multiplier}倍`,
+        note: `${adoptedStrategy ? '跟单扣款' : '自选扣款'}：排列三 ${input.selectedCode} × ${input.quantity}注 × ${input.multiplier}倍`,
       });
-      // 2. 生成跟单存根记录
+      // 2. 生成投注存根记录
       const registered = registry.registerOrder(clientRecord.managerId!, {
         id: randomUUID(),
         storeId: clientRecord.storeId,
@@ -263,7 +268,7 @@ export async function buildApp(options: AppOptions = {}) {
         selectedCode: input.selectedCode,
         quantity: input.quantity * input.multiplier,
         totalAmount: totalCost,
-        adoptedStrategy: input.adoptedStrategy,
+        adoptedStrategy,
         voucherStatus: 'StoredInShop',
         createdAt: new Date(),
       });
@@ -333,6 +338,11 @@ export async function buildApp(options: AppOptions = {}) {
     };
   });
   app.get('/api/hq/reconciliations', async request => { access.hq(request); return reconciliation.listLedger(auditQuery.parse(request.query)); });
+  app.get('/api/hq/orders', async request => {
+    access.hq(request);
+    const filters = auditQuery.parse(request.query);
+    return registry.listAllOrders(filters).map(record => ({ ...record.orderSlip, managerId: record.managerId }));
+  });
 
   await app.register(fastifyStatic, { root: fileURLToPath(new URL('./client/', import.meta.url)), index: 'index.html' });
   app.get('/vendor/vue.esm-browser.prod.js', async (_request, reply) => {
