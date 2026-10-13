@@ -1,0 +1,7 @@
+com.pailie3.store.app-pngs-0 /Users/wyw/Documents/gemini/pai-lie-3/android-app/app/build/generated/res/pngs/debug
+com.pailie3.store.app-resValues-1 /Users/wyw/Documents/gemini/pai-lie-3/android-app/app/build/generated/res/resValues/debug
+com.pailie3.store.app-packageDebugResources-2 /Users/wyw/Documents/gemini/pai-lie-3/android-app/app/build/intermediates/incremental/debug/packageDebugResources/merged.dir
+com.pailie3.store.app-packageDebugResources-3 /Users/wyw/Documents/gemini/pai-lie-3/android-app/app/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
+com.pailie3.store.app-debug-4 /Users/wyw/Documents/gemini/pai-lie-3/android-app/app/build/intermediates/merged_res/debug/mergeDebugResources
+com.pailie3.store.app-debug-5 /Users/wyw/Documents/gemini/pai-lie-3/android-app/app/src/debug/res
+com.pailie3.store.app-main-6 /Users/wyw/Documents/gemini/pai-lie-3/android-app/app/src/main/res

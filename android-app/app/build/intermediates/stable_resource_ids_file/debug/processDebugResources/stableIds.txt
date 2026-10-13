@@ -1,0 +1,1 @@
+com.pailie3.store:style/Theme.AppCompat.NoActionBar = 0x7f010000

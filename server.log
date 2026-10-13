@@ -1,0 +1,7 @@
+
+> pai-lie-3-core@0.1.0 start
+> node src/app/server.ts
+
+{"level":30,"time":1791881641253,"pid":55244,"hostname":"M1max64.local","msg":"Server listening at http://127.0.0.1:19888"}
+本地模拟演示已启动：http://127.0.0.1:19888
+{"level":30,"time":1791881642721,"pid":55244,"hostname":"M1max64.local","reqId":"req-1","req":{"method":"GET","url":"/api/bootstrap","host":"localhost:19888","remoteAddress":"127.0.0.1","remotePort":63652},"msg":"incoming request"}

@@ -1,0 +1,37 @@
+services:
+  erp-app:
+    build: .
+    user: "${ERP_UID:-1000}:${ERP_GID:-1000}"
+    init: true
+    restart: always
+    stop_grace_period: 30s
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - "127.0.0.1:19889:19888"
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Shanghai
+      PORT: "19888"
+      HOST: 0.0.0.0
+      DATABASE_PATH: /app/data/app.db
+      DEMO_SEED: "${DEMO_SEED:-true}"
+      AUTH_BOOTSTRAP_PASSWORD: "${AUTH_BOOTSTRAP_PASSWORD:-}"
+      COOKIE_SECURE: "false"
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+
+  https-proxy:
+    image: caddy:2-alpine
+    restart: always
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./ssl:/etc/caddy/ssl:ro
+      - ./pailie3.apk:/usr/share/caddy/pailie3.apk:ro

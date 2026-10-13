@@ -1,0 +1,16 @@
+{
+  "name": "门店档案 · 事后对账工作台",
+  "short_name": "门店工作台",
+  "description": "线下经营，线上留档。档案归属、收支对账与凭证保管。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#176458",
+  "theme_color": "#176458",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

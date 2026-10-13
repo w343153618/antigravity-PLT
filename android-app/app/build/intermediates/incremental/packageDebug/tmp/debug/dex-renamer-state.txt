@@ -1,0 +1,7 @@
+#Tue Oct 13 17:25:01 CST 2026
+base.0=/Users/wyw/Documents/gemini/pai-lie-3/android-app/app/build/intermediates/dex/debug/mergeProjectDexDebug/0/classes.dex
+base.1=/Users/wyw/Documents/gemini/pai-lie-3/android-app/app/build/intermediates/dex/debug/mergeProjectDexDebug/15/classes.dex
+path.0=0/classes.dex
+path.1=15/classes.dex
+renamed.0=classes.dex
+renamed.1=classes2.dex
