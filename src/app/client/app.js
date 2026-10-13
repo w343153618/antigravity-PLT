@@ -59,7 +59,8 @@ createApp({
     const role = computed(() => session.value?.role ?? null);
     const manager = computed(() => bootstrap.value.managers.find(item => item.id === session.value?.managerId));
     const store = computed(() => bootstrap.value.stores.find(item => item.id === session.value?.storeId));
-    const roleTitle = computed(() => ({ client: '客户工作台', manager: '店长工作台', hq: '总部管理后台' })[role.value]);
+    const roleTitle = computed(() => ({ client: '我的', manager: '门店', hq: '总部' })[role.value]);
+    const roleLabel = computed(() => ({ client: '客户', manager: '店长', hq: '总部' })[role.value]);
     const title = computed(() => ({ today: '今日策略', calendar: '战绩日历', workspace: roleTitle.value })[view.value]);
     const ownClients = computed(() => clients.value.filter(item => item.managerId === session.value?.managerId));
     const adjustmentClient = computed(() => ownClients.value.find(item => item.id === adjustmentForm.clientId));
@@ -557,6 +558,6 @@ createApp({
       });
     }
     onMounted(initialize);
-    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, customDialog, portfolioDialog, followForm, followTotalCost, customForm, customTotalCost, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, syncing, syncMsg, syncOfficialLottery, initialize, login, logout, loadScope, loadGlobal, openDay, openOrder, openFollow, submitFollowOrder, openCustomOrder, submitCustomOrder, getOrderResolution, openPortfolioDialog, editPortfolioToday, savePortfolioModal, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient };
+    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, roleLabel, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, customDialog, portfolioDialog, followForm, followTotalCost, customForm, customTotalCost, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, syncing, syncMsg, syncOfficialLottery, initialize, login, logout, loadScope, loadGlobal, openDay, openOrder, openFollow, submitFollowOrder, openCustomOrder, submitCustomOrder, getOrderResolution, openPortfolioDialog, editPortfolioToday, savePortfolioModal, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient };
   },
 }).mount('#app');

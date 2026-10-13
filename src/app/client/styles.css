@@ -13,3 +13,68 @@
 @media(max-width:760px){.auth-shell{padding:24px 20px;align-items:start;padding-top:max(48px,env(safe-area-inset-top))}.auth-panel{padding:28px 24px}.auth-brand{margin-bottom:28px}.auth-panel h1{font-size:1.55rem}.auth-panel input{font-size:16px}.account-scope{flex-basis:100%;margin-top:4px;justify-content:space-between;padding-top:12px;border-top:1px solid var(--line)}.account-name{font-size:.9rem}.account-scope button{font-size:.8rem}.topbar-date{margin-left:auto}}
 
 .adjustment-actions{display:flex;gap:8px}.adjustment-actions button{min-height:44px;padding:8px 12px}.balance-preview{display:flex;flex-wrap:wrap;gap:8px 24px;padding:16px 0;border-block:1px solid var(--line);margin:16px 0;font-variant-numeric:tabular-nums}.balance-preview strong{margin-inline-start:8px}.balance-preview .field-error{flex-basis:100%;color:#a02432;font-size:.9rem}
+
+/* Read-only archives: one heading per record group, details on demand. */
+.archive-section {
+  margin-top: 0;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.archive-section > .section-heading { margin: 8px 0 16px; }
+.archive-section > summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+}
+.archive-section > summary::-webkit-details-marker { display: none; }
+.archive-section > summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+.archive-section[open] > summary { margin-bottom: 16px; }
+.archive-section[open] > summary::after { transform: rotate(225deg); }
+.archive-title { font-size: 1rem; font-weight: 600; }
+.archive-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: .8rem;
+  font-variant-numeric: tabular-nums;
+}
+.archive-section .table-scroll { border: 0; border-radius: 0; }
+.archive-section .empty { background: transparent; border: 0; border-radius: 0; }
+.archive-section .empty p { margin: 8px 0; max-width: none; }
+.archive-note { margin: 8px 0 16px; color: var(--muted); font-size: .8rem; }
+.archive-note > summary {
+  display: list-item;
+  width: fit-content;
+  min-height: 44px;
+  padding: 10px 0;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.archive-note p { max-width: 65ch; margin: 4px 0 12px; }
+.archive-caption { color: var(--muted); font-size: .8rem; margin-top: 12px; }
+.archive-section > summary:hover, .archive-note > summary:hover { color: var(--green); }
+.archive-section > summary:focus-visible, .archive-note > summary:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+.archive-section ::selection, .archive-note ::selection {
+  color: var(--text);
+  background: var(--green-soft);
+}
+@media (max-width: 760px) {
+  .archive-section { padding: 12px 0; }
+  .archive-section > summary { gap: 12px; }
+  .archive-count { font-size: .75rem; }
+}
