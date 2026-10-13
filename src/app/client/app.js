@@ -33,6 +33,7 @@ createApp({
     const dayDialog = ref(null);
     const orderDialog = ref(null);
     const followDialog = ref(null);
+    const portfolioDialog = ref(null);
     const followForm = reactive({ selectedCode: '', quantity: 1, multiplier: 1 });
     const management = ref(false);
     const hqDate = ref('');
@@ -40,6 +41,7 @@ createApp({
     let scopeRequest = 0;
     let globalRequest = 0;
     let toastTimer;
+    let pollTimer;
     let adjustmentRetry = null;
     const orderForm = reactive({ clientId: '', date: '', selectedCode: '', quantity: 1, totalAmount: 2, adoptedStrategy: false });
     const adjustmentForm = reactive({ clientId: '', date: '', direction: 'ADJUST_IN', amount: '', note: '' });
@@ -144,6 +146,7 @@ createApp({
       ++globalRequest;
       clearScope();
       clearTimeout(toastTimer);
+      stopPolling();
       session.value = null;
       bootstrap.value = { today: '', stores: [], managers: [], clients: [] };
       portfolio.value = null; calendar.value = []; view.value = 'workspace';
@@ -157,6 +160,17 @@ createApp({
       Object.assign(resultForm, { date: '', settlementCode: '', quotaPerUnit: 1040 });
       Object.assign(portfolioForm, { date: '', combos: [{ code: '', weight: 33, note: '' }, { code: '', weight: 33, note: '' }, { code: '', weight: 34, note: '' }] });
       loginForm.username = ''; loginForm.password = '';
+    }
+    function startPolling() {
+      stopPolling();
+      pollTimer = setInterval(() => {
+        if (!session.value || role.value === 'manager') return;
+        loadGlobal().catch(() => {});
+      }, 10000);
+    }
+    function stopPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = null;
     }
     async function loadGlobal() {
       if (!session.value || role.value === 'manager') { portfolio.value = null; calendar.value = []; return; }
@@ -208,6 +222,7 @@ createApp({
         if (epoch !== sessionEpoch) return;
         for (const form of [orderForm, resultForm, portfolioForm, clientForm, adjustmentForm]) form.date ||= bootstrap.value.today;
         await Promise.all([loadScope(), ...(role.value === 'manager' ? [] : [loadGlobal()])]);
+        startPolling();
       } catch (failure) {
         if (epoch === sessionEpoch && session.value && !failure.stale) error.value = failure.message || '读取失败，请检查连接后重试。';
       } finally { if (epoch === sessionEpoch) loading.value = false; }
@@ -270,11 +285,12 @@ createApp({
     function closeOrder() { if (!pending.value) orderDialog.value.close(); }
     async function openManagement() {
       if (!session.value || role.value !== 'hq') return;
+      view.value = 'workspace';
       const epoch = sessionEpoch; management.value = true;
       await nextTick();
       if (epoch !== sessionEpoch || !session.value) return;
-      document.getElementById('demo-management').scrollIntoView({ block: 'start' });
-      document.querySelector('#demo-management > summary').focus({ preventScroll: true });
+      document.getElementById('demo-management')?.scrollIntoView({ block: 'start' });
+      document.querySelector('#demo-management > summary')?.focus({ preventScroll: true });
     }
     async function perform(key, task) {
       if (pending.value || loading.value || !session.value) return;
@@ -383,12 +399,56 @@ createApp({
         await refreshAfterSave();
       });
     }
-    async function editPortfolioToday() {
-      if (role.value !== 'hq' || !portfolio.value) return;
-      isEditingPortfolio.value = true;
-      portfolioForm.date = portfolio.value.date;
-      portfolioForm.combos = portfolio.value.combos.map(c => ({ code: c.code, weight: c.weight, note: c.note || '' }));
-      await openManagement();
+    function openPortfolioDialog(forEdit = true) {
+      if (role.value !== 'hq') return;
+      isEditingPortfolio.value = forEdit;
+      formError.value = '';
+      failedForm.value = '';
+      if (forEdit && portfolio.value) {
+        portfolioForm.date = portfolio.value.date;
+        portfolioForm.combos = portfolio.value.combos.map(c => ({ code: c.code, weight: c.weight, note: c.note || '' }));
+      } else {
+        portfolioForm.date = bootstrap.value.today;
+        portfolioForm.combos = [
+          { code: '', weight: 33, note: '建议均权配置 / 风险均衡' },
+          { code: '', weight: 33, note: '建议均权配置 / 风险均衡' },
+          { code: '', weight: 34, note: '建议均权配置 / 风险均衡' }
+        ];
+      }
+      portfolioDialog.value?.showModal();
+    }
+    function editPortfolioToday() {
+      openPortfolioDialog(true);
+    }
+    function savePortfolioModal() {
+      return perform('portfolio-modal', async () => {
+        const payload = {
+          date: portfolioForm.date,
+          combos: portfolioForm.combos.map(c => ({
+            code: String(c.code).trim(),
+            weight: Number(c.weight),
+            note: c.note || undefined
+          }))
+        };
+        if (isEditingPortfolio.value) {
+          await api(`/api/portfolios/${portfolioForm.date}`, payload, 'PUT');
+          notify('当日策略已成功更新！客户端已实时同步。');
+        } else {
+          try {
+            await api('/api/portfolios', payload);
+            notify('今日三组策略发布成功！客户工作台已即刻呈现。');
+          } catch (err) {
+            if (err.status === 400 || (err.message && err.message.includes('已发布'))) {
+              await api(`/api/portfolios/${portfolioForm.date}`, payload, 'PUT');
+              notify('当日策略已更新！客户端已实时同步。');
+            } else {
+              throw err;
+            }
+          }
+        }
+        portfolioDialog.value?.close();
+        await refreshAfterSave(true);
+      });
     }
     function savePortfolio() {
       return perform('portfolio', async () => {
@@ -397,8 +457,17 @@ createApp({
           await api(`/api/portfolios/${portfolioForm.date}`, payload, 'PUT');
           notify('当日策略已更新纠错！客户端已实时同步。');
         } else {
-          await api('/api/portfolios', payload);
-          notify('参考策略已发布。');
+          try {
+            await api('/api/portfolios', payload);
+            notify('参考策略已发布。');
+          } catch (err) {
+            if (err.status === 400 || (err.message && err.message.includes('已发布'))) {
+              await api(`/api/portfolios/${portfolioForm.date}`, payload, 'PUT');
+              notify('当日策略已更新！');
+            } else {
+              throw err;
+            }
+          }
         }
         isEditingPortfolio.value = false;
         await refreshAfterSave(true);
@@ -416,6 +485,6 @@ createApp({
       });
     }
     onMounted(initialize);
-    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, followForm, followTotalCost, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, initialize, login, logout, loadScope, openDay, openOrder, openFollow, submitFollowOrder, editPortfolioToday, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient };
+    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, portfolioDialog, followForm, followTotalCost, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, initialize, login, logout, loadScope, loadGlobal, openDay, openOrder, openFollow, submitFollowOrder, openPortfolioDialog, editPortfolioToday, savePortfolioModal, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient };
   },
 }).mount('#app');

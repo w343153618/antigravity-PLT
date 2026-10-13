@@ -93,7 +93,9 @@ export async function buildApp(options: AppOptions = {}) {
         let sameOrigin = false;
         try {
           const origin = new URL(request.headers.origin);
-          const expected = new URL(`${options.secureCookies ? 'https' : request.protocol}://${request.headers.host}`);
+          const fwdHost = (request.headers['x-forwarded-host'] as string | undefined) || request.headers.host;
+          const fwdProto = (request.headers['x-forwarded-proto'] as string | undefined) || (options.secureCookies ? 'https' : request.protocol);
+          const expected = new URL(`${fwdProto}://${fwdHost}`);
           sameOrigin = origin.origin === request.headers.origin && origin.origin === expected.origin;
         } catch { return reply.code(403).send({ error: '请求来源无效' }); }
         if (!sameOrigin) return reply.code(403).send({ error: '仅允许当前应用页面提交数据' });

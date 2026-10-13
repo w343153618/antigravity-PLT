@@ -52,7 +52,14 @@
       <div v-if="loading" class="loading-shell" role="status"><p>正在读取当前角色数据…</p><div></div><div></div><div></div></div>
       <template v-else>
         <section v-if="role !== 'manager' && view === 'today'" class="today-view">
-          <div class="section-heading"><h2>{{ shortDate(bootstrap.today) }}的今日策略</h2><span class="muted">排列三每日精选</span></div>
+          <div class="section-heading">
+            <h2>{{ shortDate(bootstrap.today) }}的今日策略</h2>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button v-if="role === 'hq'" type="button" class="primary" style="min-height: 36px; padding: 4px 12px; font-size: 0.8rem;" @click="openPortfolioDialog(!!portfolio)">{{ portfolio ? '编辑修改当日策略' : '发布今日策略' }}</button>
+              <button v-if="role === 'client'" type="button" style="min-height: 36px; padding: 4px 12px; font-size: 0.8rem;" @click="loadGlobal" :disabled="loading">刷新最新策略</button>
+              <span class="muted">排列三每日精选</span>
+            </div>
+          </div>
           <div v-if="portfolio && portfolio.date === bootstrap.today" class="portfolio-grid">
             <article v-for="(combo, index) in portfolio.combos" :key="index" class="strategy">
               <div class="strategy-meta"><span>组合 {{ index + 1 }}</span><span>权重 {{ combo.weight }}</span></div>
@@ -77,13 +84,31 @@
             <div style="position: relative; z-index: 2;">
               <h3 style="font-size: 1.25rem; color: #176458; margin-bottom: 8px;">今日策略编制中</h3>
               <p style="color: #60716d; font-size: 0.9rem;">总部尚未发布当天的三组策略，请稍候刷新查看（绝不回显历史旧数据）。</p>
-              <button v-if="role === 'hq'" type="button" class="primary" style="margin-top: 12px;" @click="openManagement">前往发布今日策略</button>
+              <div style="display: flex; justify-content: center; gap: 12px; margin-top: 14px;">
+                <button v-if="role === 'hq'" type="button" class="primary" @click="openPortfolioDialog(false)">前往发布今日策略</button>
+                <button type="button" class="primary" @click="loadGlobal" :disabled="loading">立即刷新策略</button>
+              </div>
             </div>
           </div>
           <p class="strategy-caption">今日三组排列三策略<span>由总部管理员当日发布并支持实时纠错；客户可一键快速跟单。</span></p>
-          <div class="today-secondary">
-            <section class="recent-panel"><div class="section-heading"><h2>最近核验</h2><button type="button" class="text-button" @click="view = 'calendar'">查看 30 天 <span aria-hidden="true">→</span></button></div><div class="recent-days"><button v-for="item in calendar.slice(-7)" :key="item.date" type="button" :class="['day-cell', item.status ? item.status.toLowerCase() : 'pending-day']" @click="openDay(item)" :aria-label="item.date + '，' + statusLabel(item) + '，查看详情'"><span>{{ item.date.slice(5).replace('-', '/') }}</span><strong>{{ item.status === 'Hit' ? '红' : item.status === 'Miss' ? '黑' : '待' }}</strong></button></div><p class="muted small">红为 Hit，黑为 Miss；灰色日期等待决议核验。</p></section>
-            <section class="workflow-note"><h2>服务费如何计算</h2><p>采纳策略且实现正向净收益时，按 20% 核算服务费，其中 10% 归店长，10% 归平台。</p><p class="muted small">无正向净收益，服务费为 0。平台仅登记数据，线下款项在实体门店处理。</p></section>
+          <div class="today-secondary" style="grid-template-columns: 1fr; margin-top: 36px;">
+            <section class="recent-panel">
+              <div class="section-heading">
+                <div>
+                  <h2>近 30 天战绩日历</h2>
+                  <p class="muted small">已核验 {{ verifiedCount }} 天 · 红 {{ hitCount }} 天 · 黑 {{ verifiedCount - hitCount }} 天 · 胜率 {{ verifiedCount ? Math.round(hitCount / verifiedCount * 100) : 0 }}%</p>
+                </div>
+                <div class="legend">
+                  <span><i class="hit-dot"></i>红 / 命中 (Hit)</span>
+                  <span><i class="miss-dot"></i>黑 / 未中 (Miss)</span>
+                  <span><i></i>待核验</span>
+                </div>
+              </div>
+              <div class="calendar-week" aria-hidden="true"><span v-for="weekday in ['一', '二', '三', '四', '五', '六', '日']" :key="weekday">{{ weekday }}</span></div>
+              <div class="calendar-grid"><span v-for="blank in calendarPadding" :key="'blank-' + blank" aria-hidden="true"></span><button v-for="item in calendar" :key="item.date" type="button" :class="['day-cell', item.status ? item.status.toLowerCase() : 'pending-day', { 'is-today': item.date === bootstrap.today }]" @click="openDay(item)" :aria-label="item.date + '，' + statusLabel(item) + '，查看详情'"><span>{{ item.date.slice(5).replace('-', '/') }}</span><strong>{{ item.status === 'Hit' ? '红' : item.status === 'Miss' ? '黑' : '待' }}</strong><small>{{ item.date === bootstrap.today ? '今天' : item.status || '待核验' }}</small></button></div>
+              <p class="muted small calendar-help" style="margin-top: 16px;">点击任意日期格子，可展开查看当日三组策略与开奖决议号码的比对明细。</p>
+            </section>
+            <section class="workflow-note" style="border-top: 1px solid var(--line); padding-top: 24px;"><h2>服务费如何计算</h2><p>采纳策略且实现正向净收益时，按 20% 核算服务费，其中 10% 归店长，10% 归平台。</p><p class="muted small">无正向净收益，服务费为 0。平台仅登记数据，线下款项在实体门店处理。</p></section>
           </div>
         </section>
         <section v-if="role !== 'manager' && view === 'calendar'" class="calendar-view">
@@ -100,6 +125,45 @@
             <template v-if="role === 'client' && client">
               <dl class="metrics"><div><dt>个人往来对账结余</dt><dd>{{ money(client.reconciliationBalance) }}</dd><span>已在线下发生的收支留档</span></div><div><dt>店内存管待取</dt><dd>{{ storedCount }}<small> 份</small></dd><span>纸质凭证可到店领取</span></div><div><dt>归属店长</dt><dd class="person-value">{{ client.managerId ? managerName(client.managerId) : '历史档案待确认' }}</dd><span>{{ storeName(client.storeId) }}</span></div></dl>
               <p class="muted small scope-note">本页仅供查询。实际收支与凭证交接由实体门店办理，结余用于事后对账。</p>
+              <div class="client-strategy-quick" style="background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px; margin-bottom: 28px;">
+                <div class="section-heading" style="margin-bottom: 14px;">
+                  <div>
+                    <h2 style="font-size: 1.15rem;">今日排列三精选推荐</h2>
+                    <p class="muted small">每日总部精选三组，支持一键跟单</p>
+                  </div>
+                  <button type="button" class="text-button" @click="view = 'today'">进入策略专页 <span aria-hidden="true">→</span></button>
+                </div>
+                <div v-if="portfolio && portfolio.date === bootstrap.today" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
+                  <div v-for="(combo, index) in portfolio.combos" :key="index" style="padding: 16px; background: var(--canvas); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                      <span class="muted small">组合 {{ index + 1 }} · 权重 {{ combo.weight }}</span>
+                      <strong class="number-code" style="font-size: 1.8rem; display: block; color: var(--green);">{{ combo.code }}</strong>
+                    </div>
+                    <button type="button" class="primary" style="min-height: 36px; padding: 4px 12px; font-size: 0.8rem;" @click="openFollow(combo)">立刻跟单</button>
+                  </div>
+                </div>
+                <div v-else class="empty compact" style="margin-bottom: 0;">
+                  <p>今日策略编制中，请稍候点击下方按钮刷新查看。</p>
+                  <button type="button" class="primary" style="margin-top: 6px;" @click="loadGlobal" :disabled="loading">刷新最新策略</button>
+                </div>
+              </div>
+              <div class="client-calendar-quick" style="background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px; margin-bottom: 28px;">
+                <div class="section-heading" style="margin-bottom: 14px;">
+                  <div>
+                    <h2 style="font-size: 1.15rem;">近 30 天历史战绩日历</h2>
+                    <p class="muted small">已核验 {{ verifiedCount }} 天 · 红 {{ hitCount }} 天 · 黑 {{ verifiedCount - hitCount }} 天 · 胜率 {{ verifiedCount ? Math.round(hitCount / verifiedCount * 100) : 0 }}%</p>
+                  </div>
+                  <button type="button" class="text-button" @click="view = 'calendar'">查看完整日历 <span aria-hidden="true">→</span></button>
+                </div>
+                <div class="calendar-grid">
+                  <span v-for="blank in calendarPadding" :key="'blank-' + blank" aria-hidden="true"></span>
+                  <button v-for="item in calendar" :key="item.date" type="button" :class="['day-cell', item.status ? item.status.toLowerCase() : 'pending-day', { 'is-today': item.date === bootstrap.today }]" @click="openDay(item)" :aria-label="item.date + '，' + statusLabel(item) + '，查看详情'">
+                    <span>{{ item.date.slice(5).replace('-', '/') }}</span>
+                    <strong>{{ item.status === 'Hit' ? '红' : item.status === 'Miss' ? '黑' : '待' }}</strong>
+                    <small>{{ item.date === bootstrap.today ? '今天' : item.status || '待核验' }}</small>
+                  </button>
+                </div>
+              </div>
             </template>
 
             <template v-if="role === 'manager'">
@@ -140,6 +204,40 @@
   </div>
   <dialog v-if="role === 'client' || role === 'hq'" ref="dayDialog" class="drawer day-drawer" aria-labelledby="day-title" @click="$event.target === dayDialog && dayDialog.close()"><div v-if="day" class="drawer-content"><div class="drawer-heading"><div><h2 id="day-title">{{ shortDate(day.date) }} · 核验详情</h2><p>{{ day.date }}</p></div><button type="button" class="icon-button" aria-label="关闭核验详情" @click="dayDialog.close()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div><span :class="['status-tag', day.status === 'Hit' ? 'hit-tag' : day.status === 'Miss' ? 'miss-tag' : 'waiting']">{{ statusLabel(day) }}</span><h3>当日策略组合</h3><div v-if="day.portfolio" class="comparison-list"><div v-for="(combo, index) in day.portfolio.combos" :key="index"><span>组合 {{ index + 1 }}<small>权重 {{ combo.weight }}</small></span><strong class="number-code">{{ combo.code }}</strong><span :class="['comparison-state', { 'accent': day.resolution && combo.code === day.resolution.settlementCode }]">{{ !day.resolution ? '待核验' : combo.code === day.resolution.settlementCode ? '命中' : '未命中' }}</span></div></div><p v-else class="empty compact">当日没有发布策略。</p><div class="resolution-display"><span>决议数字<small>{{ day.resolution ? '演示决议数据' : '尚未登记，暂不判定战绩' }}</small></span><strong class="number-code">{{ day.resolution?.settlementCode || '— — —' }}</strong></div><p v-if="day.resolution" class="muted small">单组基准产出 {{ money(day.resolution.quotaPerUnit) }}。战绩表示组合比对结果，实际分润以客户存根核算为准。</p><button type="button" class="wide" @click="dayDialog.close()">返回日历</button></div></dialog>
   <dialog v-if="role === 'manager'" ref="orderDialog" class="drawer order-drawer" aria-labelledby="order-title" @cancel="pending && $event.preventDefault()" @click="$event.target === orderDialog && closeOrder()"><form class="drawer-content" @submit.prevent="saveOrder"><div class="drawer-heading"><div><h2 id="order-title">事后登记已完成业务</h2><p>{{ store?.name }} · {{ manager?.name }}</p></div><button type="button" class="icon-button" aria-label="关闭存根登记" @click="closeOrder" :disabled="!!pending"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div><p v-if="formError" id="order-form-error" tabindex="-1" class="notice error" role="alert">{{ formError }}</p><div v-if="!ownClients.length" class="notice"><p>本店还没有客户档案。请先在店长工作台建立客户档案。</p><button type="button" @click="closeOrder(); view = 'workspace'">前往添加客户</button></div><label>客户<select v-model="orderForm.clientId" required :disabled="!!pending"><option value="" disabled>选择本店客户</option><option v-for="item in ownClients" :key="item.id" :value="item.id">{{ item.name }}</option></select></label><div class="form-row"><label>业务日期<input v-model="orderForm.date" type="date" required :max="bootstrap.today" :disabled="!!pending"></label><label>三位标的<input v-model="orderForm.selectedCode" inputmode="numeric" pattern="[0-9]{3}" minlength="3" maxlength="3" required placeholder="038" :disabled="!!pending"></label></div><div class="form-row"><label>数量（组）<input v-model.number="orderForm.quantity" type="number" min="1" step="1" required :disabled="!!pending"></label><label>总金额（元）<input v-model.number="orderForm.totalAmount" type="number" min="0.01" step="0.01" required :disabled="!!pending"></label></div><label class="check-label"><input v-model="orderForm.adoptedStrategy" type="checkbox" :disabled="!!pending"><span>历史记录采纳了当日策略<small>仅采纳策略且有正向净收益时核算服务费。</small></span></label><p class="muted small">仅登记已在线下完成的业务。纸质凭证默认记为“店内存管待取”；本操作不会生成任何交易指令。</p><button type="submit" class="primary wide" :disabled="!!pending || !ownClients.length">{{ pending === 'order' ? '正在保存…' : '保存存根' }}</button></form></dialog>
+  <dialog v-if="role === 'hq'" ref="portfolioDialog" class="drawer portfolio-drawer" aria-labelledby="portfolio-title" @click="$event.target === portfolioDialog && portfolioDialog.close()">
+    <form class="drawer-content" @submit.prevent="savePortfolioModal">
+      <div class="drawer-heading">
+        <div>
+          <h2 id="portfolio-title">{{ isEditingPortfolio ? '修改当日策略组合' : '发布今日三组策略' }}</h2>
+          <p>当日三组排列三推荐选号 · 提交后客户即刻同步</p>
+        </div>
+        <button type="button" class="icon-button" aria-label="关闭" @click="portfolioDialog.close()" :disabled="!!pending">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <p v-if="formError && failedForm === 'portfolio-modal'" class="notice error" role="alert">{{ formError }}</p>
+      <label>策略业务日期
+        <input type="date" v-model="portfolioForm.date" required :max="bootstrap.today" :disabled="!!pending">
+      </label>
+      <div v-for="(combo, index) in portfolioForm.combos" :key="index" class="combo-form" style="margin-top: 14px; background: var(--canvas); padding: 14px; border-radius: 8px;">
+        <div style="grid-column: 1/-1; font-weight: 600; font-size: 0.9rem; color: var(--green); margin-bottom: 4px;">
+          策略组合 {{ index + 1 }}
+        </div>
+        <label style="margin-top: 0;">选号 (3位数字)
+          <input v-model="combo.code" inputmode="numeric" pattern="[0-9]{3}" minlength="3" maxlength="3" placeholder="038" required :disabled="!!pending" :aria-label="'策略组合 ' + (index + 1)">
+        </label>
+        <label style="margin-top: 0;">配置权重
+          <input v-model.number="combo.weight" type="number" min="1" max="100" step="any" required :disabled="!!pending" :aria-label="'组合 ' + (index + 1) + ' 权重'">
+        </label>
+        <label style="grid-column: 1/-1; margin-top: 8px;">说明备注 (选填)
+          <input v-model.trim="combo.note" placeholder="例如：建议均权配置 / 风险均衡" maxlength="100" :disabled="!!pending">
+        </label>
+      </div>
+      <button type="submit" class="primary wide" :disabled="!!pending">
+        {{ pending === 'portfolio-modal' ? '正在保存…' : (isEditingPortfolio ? '确认修改并立即生效' : '立即发布今日三组策略') }}
+      </button>
+    </form>
+  </dialog>
   <dialog v-if="role === 'client'" ref="followDialog" class="drawer follow-drawer" aria-labelledby="follow-title" @click="$event.target === followDialog && followDialog.close()">
     <form class="drawer-content" @submit.prevent="submitFollowOrder">
       <div class="drawer-heading">
