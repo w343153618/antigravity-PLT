@@ -52,6 +52,8 @@ createApp({
     const storeForm = reactive({ name: '', address: '' });
     const managerForm = reactive({ storeId: '', name: '' });
     const clientForm = reactive({ name: '', introducedByClientId: '', date: '' });
+    const syncing = ref(false);
+    const syncMsg = ref('');
     const role = computed(() => session.value?.role ?? null);
     const manager = computed(() => bootstrap.value.managers.find(item => item.id === session.value?.managerId));
     const store = computed(() => bootstrap.value.stores.find(item => item.id === session.value?.storeId));
@@ -379,6 +381,30 @@ createApp({
         notify('决议已登记，相关历史存根已核算。'); await refreshAfterSave(true);
       });
     }
+    async function syncOfficialLottery() {
+      if (syncing.value) return;
+      syncing.value = true;
+      syncMsg.value = '';
+      formError.value = '';
+      try {
+        const res = await api('/api/resolutions/auto-sync', {}, 'POST');
+        if (res.synced && res.synced.length > 0) {
+          const details = res.synced.map(s => `${s.date}(中奖号:${s.code})`).join('、');
+          syncMsg.value = `成功同步 ${res.synced.length} 期开奖：${details}`;
+          notify(`已同步体彩开奖：${details}`);
+        } else {
+          syncMsg.value = '体彩官方开奖已与系统同步，暂无未核验期数。';
+          notify('开奖数据已是最新。');
+        }
+        await refreshAfterSave(true);
+      } catch (err) {
+        const msg = err.message || '抓取开奖失败，请稍后重试。';
+        syncMsg.value = msg;
+        notify(msg);
+      } finally {
+        syncing.value = false;
+      }
+    }
     function openFollow(combo) {
       if (role.value !== 'client' || !combo) return;
       followForm.selectedCode = combo.code;
@@ -485,6 +511,6 @@ createApp({
       });
     }
     onMounted(initialize);
-    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, portfolioDialog, followForm, followTotalCost, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, initialize, login, logout, loadScope, loadGlobal, openDay, openOrder, openFollow, submitFollowOrder, openPortfolioDialog, editPortfolioToday, savePortfolioModal, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient };
+    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, portfolioDialog, followForm, followTotalCost, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, syncing, syncMsg, syncOfficialLottery, initialize, login, logout, loadScope, loadGlobal, openDay, openOrder, openFollow, submitFollowOrder, openPortfolioDialog, editPortfolioToday, savePortfolioModal, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient };
   },
 }).mount('#app');

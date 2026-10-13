@@ -151,4 +151,24 @@ describe('HTTP application', () => {
     expect(readServerConfig({ PORT: '28888', HOST: 'localhost', DATABASE_PATH: ':memory:', DEMO_SEED: 'false' })).toEqual({ port: 28888, host: 'localhost', databasePath: ':memory:', seed: false });
     for (const PORT of ['0', '80', '-1', '19888suffix', '65536', '']) expect(() => readServerConfig({ PORT })).toThrow();
   });
+
+  it('protects /api/resolutions/auto-sync allowing only hq', async () => {
+    const app = await buildApp({ databasePath: ':memory:', today: '2026-10-13', ...authOptions });
+    try {
+      const clientUser = await login(app, 'user');
+      const managerUser = await login(app, 'dianzhang');
+      const hqUser = await login(app, 'admin');
+
+      const clientRes = await clientUser.inject({ method: 'POST', url: '/api/resolutions/auto-sync' });
+      expect(clientRes.statusCode).toBe(403);
+
+      const managerRes = await managerUser.inject({ method: 'POST', url: '/api/resolutions/auto-sync' });
+      expect(managerRes.statusCode).toBe(403);
+
+      const hqRes = await hqUser.inject({ method: 'POST', url: '/api/resolutions/auto-sync' });
+      expect(hqRes.statusCode).toBe(200);
+      expect(hqRes.json()).toHaveProperty('synced');
+      expect(hqRes.json()).toHaveProperty('skipped');
+    } finally { await app.close(); }
+  });
 });

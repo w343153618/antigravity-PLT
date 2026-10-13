@@ -99,3 +99,5 @@ export function createStrategyModule(db: AppDatabase) {
 
   return { publishPortfolio, updatePortfolio, getPortfolio, getResolution, listPortfolios, getCalendar };
 }
+
+export type StrategyModule = ReturnType<typeof createStrategyModule>;

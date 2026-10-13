@@ -16,6 +16,7 @@ import { createReconciliationModule } from '../modules/reconciliation/index.ts';
 import { ReconciliationAdjustmentSchema } from '../shared/schemas/reconciliation.ts';
 import { VoucherStatusSchema } from '../shared/schemas/domain.ts';
 import { createAccess, type Actor } from './access.ts';
+import { syncOfficialResolutions } from '../modules/lottery-crawler/index.ts';
 
 // Every API route is authorized by both method and registered path. Adding a
 // route without an explicit policy cannot accidentally grant a role access.
@@ -32,6 +33,7 @@ const rolePolicies = new Map<string, readonly Actor['role'][]>([
     [`POST /api/${resource}`, ['manager']] as const),
   ...['stores', 'managers', 'portfolios', 'resolutions'].map(resource =>
     [`POST /api/${resource}`, ['hq']] as const),
+  ['POST /api/resolutions/auto-sync', ['hq']],
   ['PATCH /api/orders/:orderId/voucher-status', ['manager']],
   ['PUT /api/portfolios/:date', ['hq']],
   ['POST /api/client/orders', ['client']],
@@ -51,6 +53,7 @@ export interface AppOptions {
   logger?: boolean;
   bootstrapPassword?: string;
   secureCookies?: boolean;
+  autoSync?: boolean;
 }
 
 export async function buildApp(options: AppOptions = {}) {
@@ -69,7 +72,25 @@ export async function buildApp(options: AppOptions = {}) {
   } catch (error) { db.close(); throw error; }
 
   const app = Fastify({ logger: options.logger ?? false, bodyLimit: 32 * 1024 });
-  app.addHook('onClose', async () => { db.close(); });
+
+  const shouldAutoSync = options.autoSync ?? (process.env.NODE_ENV !== 'test');
+  let syncTimer: NodeJS.Timeout | undefined;
+  if (shouldAutoSync) {
+    syncOfficialResolutions(registry, strategy).catch((err) => {
+      app.log.warn({ err }, 'Initial lottery crawl sync failed');
+    });
+    syncTimer = setInterval(() => {
+      syncOfficialResolutions(registry, strategy).catch((err) => {
+        app.log.warn({ err }, 'Periodic lottery crawl sync failed');
+      });
+    }, 15 * 60 * 1000);
+    syncTimer.unref?.();
+  }
+
+  app.addHook('onClose', async () => {
+    if (syncTimer) clearInterval(syncTimer);
+    db.close();
+  });
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof ZodError) {
       return reply.code(400).send({ error: error.issues.map((issue) => `${issue.path.join('.') || '输入'}：${issue.message}`).join('；') });
@@ -167,6 +188,7 @@ export async function buildApp(options: AppOptions = {}) {
     return reply.code(201).send({ ...registered.orderSlip, managerId });
   });
   app.post('/api/resolutions', async (request) => { access.hq(request); return registry.recordResolution(request.body); });
+  app.post('/api/resolutions/auto-sync', async (request) => { access.hq(request); return syncOfficialResolutions(registry, strategy); });
   app.post('/api/portfolios', async (request, reply) => {
     access.hq(request);
     const input = StrategyPortfolioSchema.omit({ id: true, createdAt: true }).parse(request.body);
