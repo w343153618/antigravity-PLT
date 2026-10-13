@@ -74,21 +74,44 @@ export async function buildApp(options: AppOptions = {}) {
   const app = Fastify({ logger: options.logger ?? false, bodyLimit: 32 * 1024 });
 
   const shouldAutoSync = options.autoSync ?? (process.env.NODE_ENV !== 'test');
-  let syncTimer: NodeJS.Timeout | undefined;
+  let syncTimeout: NodeJS.Timeout | undefined;
   if (shouldAutoSync) {
-    syncOfficialResolutions(registry, strategy).catch((err) => {
-      app.log.warn({ err }, 'Initial lottery crawl sync failed');
-    });
-    syncTimer = setInterval(() => {
-      syncOfficialResolutions(registry, strategy).catch((err) => {
-        app.log.warn({ err }, 'Periodic lottery crawl sync failed');
-      });
-    }, 15 * 60 * 1000);
-    syncTimer.unref?.();
+    const runSync = async () => {
+      try {
+        const result = await syncOfficialResolutions(registry, strategy);
+        if (result.synced.length > 0) {
+          app.log.info({ synced: result.synced }, '体彩官方开奖结果自动爬取同步成功并已完成核验判定');
+        }
+      } catch (err) {
+        app.log.warn({ err }, '体彩官方开奖结果自动抓取轮询异常');
+      }
+    };
+
+    // 1. 服务启动时立即无感执行一次抓取同步
+    runSync().catch(() => {});
+
+    // 2. 自适应定时轮询：体彩开奖核心窗口期（北京时间 21:15 - 22:30）每 2 分钟抓取一次，其余时段每 15 分钟抓取一次
+    const getIntervalMs = () => {
+      const now = new Date();
+      const bjHour = (now.getUTCHours() + 8) % 24;
+      const bjMinute = now.getUTCMinutes();
+      const isDrawWindow = (bjHour === 21 && bjMinute >= 15) || (bjHour === 22 && bjMinute <= 30);
+      return isDrawWindow ? 2 * 60 * 1000 : 15 * 60 * 1000;
+    };
+
+    const scheduleNext = () => {
+      syncTimeout = setTimeout(async () => {
+        await runSync();
+        scheduleNext();
+      }, getIntervalMs());
+      syncTimeout.unref?.();
+    };
+
+    scheduleNext();
   }
 
   app.addHook('onClose', async () => {
-    if (syncTimer) clearInterval(syncTimer);
+    if (syncTimeout) clearTimeout(syncTimeout);
     db.close();
   });
   app.setErrorHandler((error, request, reply) => {
