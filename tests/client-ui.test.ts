@@ -94,6 +94,7 @@ it.each([
   expect(html).not.toContain('登录工作台');
   if (role === 'client') {
     expect(html).toContain('个人往来对账结余');
+    expect(html).toContain('自主选号');
     for (const absent of ['id="order-title"', 'id="adjustment-form"', '建立客户档案', '客户归属']) expect(html).not.toContain(absent);
     expect(browser.calls.some(path => path.startsWith('/api/stores/') || path.startsWith('/api/hq/'))).toBe(false);
   } else if (role === 'manager') {
@@ -208,4 +209,14 @@ it('can confirm a lost full-debit response even after another refresh shows a ze
   expect(state.adjustmentUnconfirmed.value).toBe(false);
   expect(state.ledger.value).toHaveLength(count + 1);
   expect(state.clients.value.find(item => item.id === client.id)?.reconciliationBalance).toBe(0);
+});
+
+it('allows client to open custom order and generate random numbers', async () => {
+  const browser = await harness();
+  await browser.login('user');
+  const state = browser.state as any;
+  state.openCustomOrder();
+  expect(state.customForm.selectedCode).toBe('');
+  state.randomCustomCode();
+  expect(state.customForm.selectedCode).toMatch(/^[0-9]{3}$/);
 });

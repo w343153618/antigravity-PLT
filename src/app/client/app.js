@@ -447,6 +447,9 @@ createApp({
       failedForm.value = '';
       customDialog.value?.showModal();
     }
+    function randomCustomCode() {
+      customForm.selectedCode = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+    }
     function submitCustomOrder() {
       return perform('custom-order', async () => {
         const order = await api('/api/client/orders', {
@@ -558,6 +561,6 @@ createApp({
       });
     }
     onMounted(initialize);
-    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, roleLabel, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, customDialog, portfolioDialog, followForm, followTotalCost, customForm, customTotalCost, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, syncing, syncMsg, syncOfficialLottery, initialize, login, logout, loadScope, loadGlobal, openDay, openOrder, openFollow, submitFollowOrder, openCustomOrder, submitCustomOrder, getOrderResolution, openPortfolioDialog, editPortfolioToday, savePortfolioModal, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient };
+    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, roleLabel, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, customDialog, portfolioDialog, followForm, followTotalCost, customForm, customTotalCost, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, syncing, syncMsg, syncOfficialLottery, initialize, login, logout, loadScope, loadGlobal, openDay, openOrder, openFollow, submitFollowOrder, openCustomOrder, randomCustomCode, submitCustomOrder, getOrderResolution, openPortfolioDialog, editPortfolioToday, savePortfolioModal, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient };
   },
 }).mount('#app');

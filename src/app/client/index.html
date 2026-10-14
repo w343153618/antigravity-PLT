@@ -37,6 +37,7 @@
       <button v-if="role !== 'manager'" type="button" :class="{ active: view === 'today' }" :aria-current="view === 'today' ? 'page' : undefined" @click="view = 'today'"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>今日策略</button>
       <button v-if="role !== 'manager'" type="button" :class="{ active: view === 'calendar' }" :aria-current="view === 'calendar' ? 'page' : undefined" @click="view = 'calendar'"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2m4 0h2m-8 3h2"/></svg>战绩日历</button>
       <button type="button" :class="{ active: view === 'workspace' }" :aria-current="view === 'workspace' ? 'page' : undefined" @click="view = 'workspace'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v11h16V10M2 10l3-7h14l3 7M2 10h20M9 21v-7h6v7"/></svg>{{ roleTitle }}</button>
+      <button v-if="role === 'client'" type="button" @click="openCustomOrder" style="margin-top: 8px; color: var(--green);"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m12 8 4 4-4 4M8 12h8"/></svg>自主选号</button>
     </nav>
   </aside>
   <div class="app-body">
@@ -45,7 +46,7 @@
       <div class="account-scope"><span class="account-name">{{ session.username }}<small>{{ roleLabel }}</small></span><button type="button" @click="logout" :disabled="authBusy || !!pending">退出登录</button></div>
     </header>
     <main id="main-content">
-      <div class="page-heading"><div><h1>{{ title }}</h1><p v-if="role === 'client' && client">{{ client.name }} · {{ store?.name }}</p><p v-else-if="role === 'manager' && store">{{ store.name }} · {{ manager?.name }}</p></div><button v-if="view === 'workspace' && role === 'manager'" type="button" class="primary" @click="openOrder" :disabled="loading || scopeLoading || !store || !!pending">登记已完成业务<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>
+      <div class="page-heading"><div><h1>{{ title }}</h1><p v-if="role === 'client' && client">{{ client.name }} · {{ store?.name }}</p><p v-else-if="role === 'manager' && store">{{ store.name }} · {{ manager?.name }}</p></div><div style="display: flex; gap: 10px; align-items: center;"><button v-if="role === 'client'" type="button" class="primary" @click="openCustomOrder" :disabled="loading || scopeLoading || !client || !!pending" style="display: flex; align-items: center; gap: 6px;"><svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m12 8 4 4-4 4M8 12h8"/></svg>自主选号</button><button v-if="view === 'workspace' && role === 'manager'" type="button" class="primary" @click="openOrder" :disabled="loading || scopeLoading || !store || !!pending">登记已完成业务<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div></div>
       <div v-if="error" class="notice error" role="alert"><span>{{ error }}</span><button type="button" @click="initialize" :disabled="loading">重新加载</button></div>
       <div v-if="loading" class="loading-shell" role="status"><p>正在读取当前角色数据…</p><div></div><div></div><div></div></div>
       <template v-else>
@@ -53,6 +54,7 @@
           <div class="section-heading">
             <h2>{{ shortDate(bootstrap.today) }} 今日策略</h2>
             <div style="display: flex; gap: 8px; align-items: center;">
+              <button v-if="role === 'client'" type="button" class="primary" style="min-height: 36px; padding: 4px 14px; font-size: 0.85rem;" @click="openCustomOrder">🎯 自主选号</button>
               <button v-if="role === 'hq'" type="button" class="primary" style="min-height: 36px; padding: 4px 12px; font-size: 0.8rem;" @click="openPortfolioDialog(!!portfolio)">{{ portfolio ? '编辑修改当日策略' : '发布今日策略' }}</button>
               <button v-if="role === 'client'" type="button" style="min-height: 36px; padding: 4px 12px; font-size: 0.8rem;" @click="loadGlobal" :disabled="loading">刷新最新策略</button>
             </div>
@@ -68,7 +70,19 @@
               </div>
             </article>
           </div>
-          <div v-else class="empty mosaic-card" style="position: relative; overflow: hidden; padding: 48px 24px; background: #fdfefe; border: 2px dashed #b5cac2;">
+          <div v-if="role === 'client' && portfolio && portfolio.date === bootstrap.today" class="custom-pick-banner" style="margin-top: 16px; padding: 18px 24px; background: var(--paper); border: 2px dashed #0c7a66; border-radius: var(--radius); display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <span style="font-size: 1.8rem;" aria-hidden="true">🎯</span>
+              <div>
+                <h3 style="font-size: 1.05rem; margin: 0; color: #176458;">排列三自主选号</h3>
+                <p style="margin: 2px 0 0; font-size: 0.85rem; color: var(--muted);">不跟推荐，自主选 3 位数字投注，支持自定义注数与倍投</p>
+              </div>
+            </div>
+            <button type="button" class="primary" style="min-height: 38px; padding: 6px 18px; font-size: 0.85rem;" @click="openCustomOrder">
+              🎯 立即自主选号
+            </button>
+          </div>
+          <div v-else-if="!portfolio || portfolio.date !== bootstrap.today" class="empty mosaic-card" style="position: relative; overflow: hidden; padding: 48px 24px; background: #fdfefe; border: 2px dashed #b5cac2;">
             <div style="filter: blur(8px); opacity: 0.35; user-select: none; pointer-events: none;" aria-hidden="true">
               <div style="display: flex; justify-content: center; gap: 20px; font-size: 3rem; font-weight: bold; margin-bottom: 16px;">
                 <span>8</span><span>5</span><span>2</span>
@@ -82,6 +96,7 @@
               <h3 style="font-size: 1.25rem; color: #176458; margin-bottom: 8px;">今日策略编制中</h3>
               <p style="color: #60716d; font-size: 0.9rem;">尚未发布当日策略，请稍候刷新查看。</p>
               <div style="display: flex; justify-content: center; gap: 12px; margin-top: 14px;">
+                <button v-if="role === 'client'" type="button" class="primary" @click="openCustomOrder">🎯 自主选号</button>
                 <button v-if="role === 'hq'" type="button" class="primary" @click="openPortfolioDialog(false)">前往发布今日策略</button>
                 <button type="button" class="primary" @click="loadGlobal" :disabled="loading">立即刷新策略</button>
               </div>
@@ -135,10 +150,20 @@
                     </div>
                     <button type="button" class="primary" style="min-height: 36px; padding: 4px 12px; font-size: 0.8rem;" @click="openFollow(combo)">立刻跟单</button>
                   </div>
+                  <div style="padding: 16px; background: #f6fcfb; border: 1.5px dashed var(--green); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                      <span class="muted small" style="color: var(--green); font-weight: 500;">自主选 3 位数</span>
+                      <strong class="number-code" style="font-size: 1.8rem; display: block; color: var(--green);">自选</strong>
+                    </div>
+                    <button type="button" class="primary" style="min-height: 36px; padding: 4px 12px; font-size: 0.8rem;" @click="openCustomOrder">自主选号</button>
+                  </div>
                 </div>
                 <div v-else class="empty compact" style="margin-bottom: 0;">
                   <p>今日策略编制中</p>
-                  <button type="button" class="primary" style="margin-top: 6px;" @click="loadGlobal" :disabled="loading">刷新最新策略</button>
+                  <div style="display: flex; gap: 10px; justify-content: center; margin-top: 8px;">
+                    <button type="button" class="primary" @click="openCustomOrder">🎯 自主选号</button>
+                    <button type="button" @click="loadGlobal" :disabled="loading">刷新最新策略</button>
+                  </div>
                 </div>
               </div>
               <div class="client-calendar-quick" style="background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px; margin-bottom: 28px;">
@@ -279,7 +304,10 @@
       </div>
       <p v-if="formError && failedForm === 'custom-order'" class="notice error" role="alert">{{ formError }}</p>
       <label>自选 3 位数字号码（000 - 999）
-        <input v-model.trim="customForm.selectedCode" inputmode="numeric" pattern="[0-9]{3}" minlength="3" maxlength="3" required placeholder="例如：890" :disabled="!!pending" style="font-size: 1.5rem; letter-spacing: 4px; text-align: center; font-weight: bold; color: var(--green);">
+        <div style="display: flex; gap: 8px; margin-top: 6px;">
+          <input v-model.trim="customForm.selectedCode" inputmode="numeric" pattern="[0-9]{3}" minlength="3" maxlength="3" required placeholder="例如：890" :disabled="!!pending" style="font-size: 1.5rem; letter-spacing: 4px; text-align: center; font-weight: bold; color: var(--green); flex: 1; margin-top: 0;">
+          <button type="button" @click="randomCustomCode" :disabled="!!pending" style="padding: 0 14px; font-size: 0.85rem; white-space: nowrap;">🎲 机选一注</button>
+        </div>
       </label>
       <div class="form-row" style="margin-top: 12px;">
         <label>购买注数
