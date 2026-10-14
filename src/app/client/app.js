@@ -118,6 +118,7 @@ createApp({
         throw new Error('账号角色或归属无效，请联系管理员。');
       }
       session.value = actor;
+      syncHash();
     }
     async function api(path, body, method = 'POST', headers = {}) {
       const epoch = sessionEpoch;
@@ -159,7 +160,9 @@ createApp({
       stopPolling();
       session.value = null;
       bootstrap.value = { today: '', stores: [], managers: [], clients: [] };
-      portfolio.value = null; calendar.value = []; view.value = 'workspace';
+      portfolio.value = null; calendar.value = [];
+      syncHash();
+      if (!['today', 'calendar', 'workspace'].includes(view.value)) view.value = 'workspace';
       error.value = ''; loading.value = false; scopeLoading.value = false; pending.value = '';
       adjustmentRetry = null; adjustmentUnconfirmed.value = false; hqDate.value = '';
       Object.assign(orderForm, { clientId: '', date: '', selectedCode: '', quantity: 1, totalAmount: 2, adoptedStrategy: false });
@@ -171,13 +174,30 @@ createApp({
       Object.assign(portfolioForm, { date: '', combos: [{ code: '', weight: 33, note: '' }, { code: '', weight: 33, note: '' }, { code: '', weight: 34, note: '' }] });
       loginForm.username = ''; loginForm.password = '';
     }
+    function syncHash() {
+      if (typeof window === 'undefined' || !window.location) return;
+      const h = (window.location.hash || '').replace(/^#/, '');
+      if (['today', 'calendar', 'workspace'].includes(h)) {
+        if (role.value === 'manager' && (h === 'today' || h === 'calendar')) {
+          view.value = 'workspace';
+        } else {
+          view.value = h;
+        }
+      }
+    }
+    function switchView(target) {
+      view.value = target;
+      if (typeof window !== 'undefined' && window.location) {
+        window.location.hash = target;
+      }
+    }
     function startPolling() {
       stopPolling();
       pollTimer = setInterval(() => {
         if (!session.value) return;
         if (role.value !== 'manager') loadGlobal().catch(() => {});
-        loadScope().catch(() => {});
-      }, 10000);
+        loadScope(true).catch(() => {});
+      }, 30000);
     }
     function stopPolling() {
       if (pollTimer) clearInterval(pollTimer);
@@ -192,11 +212,11 @@ createApp({
       calendar.value = [...days].sort((a, b) => a.date.localeCompare(b.date));
       if (day.value) day.value = calendar.value.find(item => item.date === day.value.date) ?? null;
     }
-    async function loadScope() {
+    async function loadScope(silent = false) {
       if (!session.value) return;
       const request = ++scopeRequest;
       const current = session.value;
-      scopeError.value = ''; scopeLoading.value = true;
+      if (!silent) { scopeError.value = ''; scopeLoading.value = true; }
       try {
         if (current.role === 'client') {
           const values = await Promise.all([api(`/api/clients/${current.clientId}`), api(`/api/clients/${current.clientId}/orders`), api(`/api/clients/${current.clientId}/reconciliations`)]);
@@ -218,8 +238,8 @@ createApp({
           audits.value = newest(attribution.audits); attributionSummary.value = attribution.summary; attributionTotals.value = attribution.totals; ledger.value = latestLedger(entries); orders.value = newest(hqOrders);
         }
       } catch (failure) {
-        if (request === scopeRequest) scopeError.value = failure.message || '数据读取失败，请重试。';
-      } finally { if (request === scopeRequest) scopeLoading.value = false; }
+        if (request === scopeRequest && !silent) scopeError.value = failure.message || '数据读取失败，请重试。';
+      } finally { if (request === scopeRequest && !silent) scopeLoading.value = false; }
     }
     async function refreshBootstrap() {
       const epoch = sessionEpoch;
@@ -330,7 +350,7 @@ createApp({
       try {
         await refreshBootstrap();
         if (epoch !== sessionEpoch || !session.value) throw staleSession();
-        await Promise.all([loadScope(), ...(includeGlobal && role.value !== 'manager' ? [loadGlobal()] : [])]);
+        await Promise.all([loadScope(true), ...(includeGlobal && role.value !== 'manager' ? [loadGlobal()] : [])]);
         if (epoch !== sessionEpoch || !session.value) throw staleSession();
       } catch (failure) {
         if (epoch !== sessionEpoch || !session.value || failure.stale) throw staleSession();
@@ -560,7 +580,13 @@ createApp({
         await api('/api/managers', { ...managerForm }); managerForm.name = ''; await refreshAfterSave(); notify('店长档案已添加，对应店长登录后可建立客户档案。');
       });
     }
-    onMounted(initialize);
-    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, roleLabel, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, customDialog, portfolioDialog, followForm, followTotalCost, customForm, customTotalCost, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, syncing, syncMsg, syncOfficialLottery, initialize, login, logout, loadScope, loadGlobal, openDay, openOrder, openFollow, submitFollowOrder, openCustomOrder, randomCustomCode, submitCustomOrder, getOrderResolution, openPortfolioDialog, editPortfolioToday, savePortfolioModal, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient };
+    onMounted(() => {
+      syncHash();
+      if (typeof window !== 'undefined' && window.addEventListener) {
+        window.addEventListener('hashchange', syncHash);
+      }
+      initialize();
+    });
+    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, roleLabel, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, customDialog, portfolioDialog, followForm, followTotalCost, customForm, customTotalCost, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, syncing, syncMsg, syncOfficialLottery, initialize, login, logout, loadScope, loadGlobal, openDay, openOrder, openFollow, submitFollowOrder, openCustomOrder, randomCustomCode, submitCustomOrder, getOrderResolution, openPortfolioDialog, editPortfolioToday, savePortfolioModal, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient, switchView, syncHash };
   },
 }).mount('#app');
