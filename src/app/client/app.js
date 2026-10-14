@@ -36,7 +36,16 @@ createApp({
     const customDialog = ref(null);
     const portfolioDialog = ref(null);
     const followForm = reactive({ selectedCode: '', quantity: 1, multiplier: 1 });
-    const customForm = reactive({ selectedCode: '', quantity: 1, multiplier: 1, betMode: 'DIRECT' });
+    const customForm = reactive({
+      betMode: 'DIRECT',
+      directPos1: [],
+      directPos2: [],
+      directPos3: [],
+      group6Balls: [],
+      group3Repeats: [],
+      group3Singles: [],
+      multiplier: 1,
+    });
     const management = ref(false);
     const hqDate = ref('');
     let sessionEpoch = 0;
@@ -90,18 +99,125 @@ createApp({
       const m = Math.max(1, Number(followForm.multiplier) || 1);
       return q * m * 2;
     });
+    const customQuantity = computed(() => {
+      if (customForm.betMode === 'DIRECT') {
+        return customForm.directPos1.length * customForm.directPos2.length * customForm.directPos3.length;
+      }
+      if (customForm.betMode === 'GROUP_6') {
+        const n = customForm.group6Balls.length;
+        if (n < 3) return 0;
+        return (n * (n - 1) * (n - 2)) / 6;
+      }
+      if (customForm.betMode === 'GROUP_3') {
+        let count = 0;
+        for (const r of customForm.group3Repeats) {
+          for (const s of customForm.group3Singles) {
+            if (r !== s) count++;
+          }
+        }
+        return count;
+      }
+      return 0;
+    });
+
+    const customSelectedCode = computed(() => {
+      if (customForm.betMode === 'DIRECT') {
+        if (!customForm.directPos1.length && !customForm.directPos2.length && !customForm.directPos3.length) {
+          return '';
+        }
+        if (customForm.directPos1.length === 1 && customForm.directPos2.length === 1 && customForm.directPos3.length === 1) {
+          return `${customForm.directPos1[0]}${customForm.directPos2[0]}${customForm.directPos3[0]}`;
+        }
+        const p1 = [...customForm.directPos1].sort().join('');
+        const p2 = [...customForm.directPos2].sort().join('');
+        const p3 = [...customForm.directPos3].sort().join('');
+        return `${p1}|${p2}|${p3}`;
+      }
+      if (customForm.betMode === 'GROUP') {
+        if (customForm.directPos1.length === 1 && customForm.directPos2.length === 1 && customForm.directPos3.length === 1) {
+          return `${customForm.directPos1[0]}${customForm.directPos2[0]}${customForm.directPos3[0]}`;
+        }
+        if (customForm.group6Balls.length) return [...customForm.group6Balls].sort().join('');
+        return '';
+      }
+      if (customForm.betMode === 'GROUP_6') {
+        return [...customForm.group6Balls].sort().join('');
+      }
+      if (customForm.betMode === 'GROUP_3') {
+        if (!customForm.group3Repeats.length && !customForm.group3Singles.length) return '';
+        if (customForm.group3Repeats.length === 1 && customForm.group3Singles.length === 1) {
+          const r = customForm.group3Repeats[0];
+          const s = customForm.group3Singles[0];
+          return [r, r, s].sort().join('');
+        }
+        const r = [...customForm.group3Repeats].sort().join('');
+        const s = [...customForm.group3Singles].sort().join('');
+        return `${r}|${s}`;
+      }
+      return '';
+    });
+
+    Object.defineProperty(customForm, 'selectedCode', {
+      get() { return customSelectedCode.value; },
+      set(val) {
+        if (!val) {
+          customForm.directPos1 = [];
+          customForm.directPos2 = [];
+          customForm.directPos3 = [];
+          customForm.group6Balls = [];
+          customForm.group3Repeats = [];
+          customForm.group3Singles = [];
+        } else if (/^[0-9]{3}$/.test(val)) {
+          customForm.directPos1 = [val[0]];
+          customForm.directPos2 = [val[1]];
+          customForm.directPos3 = [val[2]];
+          customForm.group6Balls = [...new Set(val)];
+          const counts = {};
+          for (const d of val) counts[d] = (counts[d] || 0) + 1;
+          for (const [d, c] of Object.entries(counts)) {
+            if (c >= 2) customForm.group3Repeats = [d];
+            else customForm.group3Singles = [d];
+          }
+        }
+      },
+      configurable: true,
+      enumerable: true,
+    });
+
+    Object.defineProperty(customForm, 'quantity', {
+      get() { return customQuantity.value; },
+      set() {},
+      configurable: true,
+      enumerable: true,
+    });
+
     const customTotalCost = computed(() => {
-      const q = Math.max(1, Number(customForm.quantity) || 1);
+      const q = Math.max(0, customQuantity.value);
       const m = Math.max(1, Number(customForm.multiplier) || 1);
       return q * m * 2;
     });
+
     const customGroupType = computed(() => {
-      const code = (customForm.selectedCode || '').trim();
-      if (!/^\d{3}$/.test(code)) return null;
-      const size = new Set(code).size;
-      if (size === 1) return { type: 'LEOPARD', label: '豹子号不支持组选', valid: false, quota: 0 };
-      if (size === 2) return { type: 'GROUP_3', label: '组选三', valid: true, quota: 346 };
-      return { type: 'GROUP_6', label: '组选六', valid: true, quota: 173 };
+      if (customForm.betMode === 'DIRECT') return null;
+      if (customForm.betMode === 'GROUP') {
+        const code = (customForm.selectedCode || '').replace(/[^0-9]/g, '');
+        if (code.length !== 3) return null;
+        const size = new Set(code).size;
+        if (size === 1) return { type: 'LEOPARD', label: '豹子号不支持组选', valid: false, quota: 0 };
+        if (size === 2) return { type: 'GROUP_3', label: '组选三', valid: true, quota: 346 };
+        return { type: 'GROUP_6', label: '组选六', valid: true, quota: 173 };
+      }
+      if (customForm.betMode === 'GROUP_6') {
+        const n = customForm.group6Balls.length;
+        if (n < 3) return { type: 'GROUP_6', label: '组选六', valid: false, quota: 173 };
+        return { type: 'GROUP_6', label: n === 3 ? '组选六' : '组选六复式', valid: true, quota: 173 };
+      }
+      if (customForm.betMode === 'GROUP_3') {
+        const q = customQuantity.value;
+        if (q < 1) return { type: 'GROUP_3', label: '组选三', valid: false, quota: 346 };
+        return { type: 'GROUP_3', label: q === 1 ? '组选三' : '组选三复式', valid: true, quota: 346 };
+      }
+      return null;
     });
     const hitCount = computed(() => calendar.value.filter(item => item.status === 'Hit').length);
     const verifiedCount = computed(() => calendar.value.filter(item => item.status).length);
@@ -466,28 +582,53 @@ createApp({
         await refreshAfterSave();
       });
     }
+    function toggleBall(arr, val) {
+      const idx = arr.indexOf(val);
+      if (idx > -1) arr.splice(idx, 1);
+      else arr.push(val);
+    }
+    function selectAllBalls(arr) {
+      arr.splice(0, arr.length, ...'0123456789'.split(''));
+    }
+    function clearBalls(arr) {
+      arr.splice(0, arr.length);
+    }
+    function setCustomMode(mode) {
+      customForm.betMode = mode;
+      randomCustomCode();
+    }
     function openCustomOrder() {
       if (role.value !== 'client') return;
-      customForm.selectedCode = '';
-      customForm.quantity = 1;
-      customForm.multiplier = 1;
       customForm.betMode = 'DIRECT';
+      customForm.multiplier = 1;
+      customForm.selectedCode = '';
       formError.value = '';
       failedForm.value = '';
       customDialog.value?.showModal();
     }
     function randomCustomCode() {
-      customForm.selectedCode = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+      const digits = '0123456789'.split('');
+      if (customForm.betMode === 'DIRECT' || customForm.betMode === 'GROUP') {
+        customForm.directPos1 = [digits[Math.floor(Math.random() * 10)]];
+        customForm.directPos2 = [digits[Math.floor(Math.random() * 10)]];
+        customForm.directPos3 = [digits[Math.floor(Math.random() * 10)]];
+      } else if (customForm.betMode === 'GROUP_6') {
+        const shuffled = [...digits].sort(() => Math.random() - 0.5);
+        customForm.group6Balls = shuffled.slice(0, 3);
+      } else if (customForm.betMode === 'GROUP_3') {
+        const shuffled = [...digits].sort(() => Math.random() - 0.5);
+        customForm.group3Repeats = [shuffled[0]];
+        customForm.group3Singles = [shuffled[1]];
+      }
     }
     function submitCustomOrder() {
       return perform('custom-order', async () => {
-        const code = customForm.selectedCode.trim();
-        if (customForm.betMode === 'GROUP' && new Set(code).size === 1) {
-          throw new Error('豹子号（三位相同）体彩不支持组选，请切换为直选。');
+        if (customQuantity.value === 0) {
+          throw new Error('当前选号未构成有效注数，请继续点选号码。');
         }
         const order = await api('/api/client/orders', {
-          selectedCode: code,
-          quantity: Number(customForm.quantity),
+          selectedCode: customSelectedCode.value,
+          quantity: customQuantity.value,
           multiplier: Number(customForm.multiplier),
           adoptedStrategy: false,
           betMode: customForm.betMode,
@@ -497,24 +638,84 @@ createApp({
         await refreshAfterSave();
       });
     }
+    function formatOrderCode(order) {
+      const code = (order && order.selectedCode) || '';
+      if (code.includes('|')) {
+        const parts = code.split('|');
+        if (parts.length === 3) {
+          return `百:${parts[0]} 十:${parts[1]} 个:${parts[2]}`;
+        }
+        if (parts.length === 2) {
+          return `重:${parts[0]} 单:${parts[1]}`;
+        }
+      }
+      return code;
+    }
+    function orderModeTag(order) {
+      if (order.adoptedStrategy) return '精选跟单';
+      if (order.betMode === 'GROUP_6') return (order.selectedCode && order.selectedCode.length > 3) ? '自选·组六复式' : '自选·组选六';
+      if (order.betMode === 'GROUP_3') return (order.selectedCode && order.selectedCode.includes('|')) ? '自选·组三复式' : '自选·组选三';
+      if (order.betMode === 'GROUP') return '自选·组选';
+      if (order.selectedCode && order.selectedCode.includes('|')) return '自选·直选复式';
+      return '自选·直选';
+    }
+    function isOrderHitClient(selectedCode, settlementCode, betMode) {
+      if (!betMode || betMode === 'DIRECT') {
+        if (selectedCode.includes('|')) {
+          const [p1, p2, p3] = selectedCode.split('|');
+          return Boolean(p1?.includes(settlementCode[0]) && p2?.includes(settlementCode[1]) && p3?.includes(settlementCode[2]));
+        }
+        return selectedCode === settlementCode;
+      }
+      if (betMode === 'GROUP_6') {
+        if (new Set(settlementCode).size !== 3) return false;
+        return [...settlementCode].every(d => selectedCode.includes(d));
+      }
+      if (betMode === 'GROUP_3') {
+        if (new Set(settlementCode).size !== 2) return false;
+        const counts = {};
+        for (const d of settlementCode) counts[d] = (counts[d] || 0) + 1;
+        let repeat = '', single = '';
+        for (const [d, c] of Object.entries(counts)) {
+          if (c === 2) repeat = d;
+          else if (c === 1) single = d;
+        }
+        if (!repeat || !single) return false;
+        if (selectedCode.includes('|')) {
+          const [repeats, singles] = selectedCode.replace(/^G3:/, '').split('|');
+          return Boolean(repeats?.includes(repeat) && singles?.includes(single));
+        }
+        if (selectedCode.length === 3) {
+          return [...selectedCode].sort().join('') === [...settlementCode].sort().join('');
+        }
+        return selectedCode.includes(repeat) && selectedCode.includes(single);
+      }
+      if (selectedCode.length === 3) {
+        return [...selectedCode].sort().join('') === [...settlementCode].sort().join('');
+      }
+      if (new Set(settlementCode).size === 3) {
+        return [...settlementCode].every(d => selectedCode.includes(d));
+      }
+      return false;
+    }
     function getOrderResolution(order) {
       const day = calendar.value.find(item => item.date === order.date);
       if (!day || !day.resolution) {
         return { isResolved: false, isHit: false, isGroup: false, settlementCode: '' };
       }
-      const isGroup = order.betMode === 'GROUP' || order.betMode === 'GROUP_3' || order.betMode === 'GROUP_6';
-      const isHit = isGroup
-        ? [...order.selectedCode].sort().join('') === [...day.resolution.settlementCode].sort().join('')
-        : day.resolution.settlementCode === order.selectedCode;
-      const digits = new Set(order.selectedCode);
-      const quotaPerUnit = isGroup
-        ? (digits.size === 2 ? 346 : 173)
-        : day.resolution.quotaPerUnit;
+      const settlementCode = day.resolution.settlementCode;
+      const isHit = isOrderHitClient(order.selectedCode, settlementCode, order.betMode);
+      const isGroup = order.betMode === 'GROUP_6' || order.betMode === 'GROUP_3' || order.betMode === 'GROUP';
+      let quotaPerUnit = day.resolution.quotaPerUnit;
+      if (order.betMode === 'GROUP_6') quotaPerUnit = 173;
+      else if (order.betMode === 'GROUP_3') quotaPerUnit = 346;
+      else if (order.betMode === 'GROUP') quotaPerUnit = new Set(settlementCode).size === 2 ? 346 : 173;
+
       return {
         isResolved: true,
         isHit,
         isGroup,
-        settlementCode: day.resolution.settlementCode,
+        settlementCode,
         quotaPerUnit,
       };
     }
@@ -610,6 +811,6 @@ createApp({
       }
       initialize();
     });
-    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, roleLabel, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, customDialog, portfolioDialog, followForm, followTotalCost, customForm, customTotalCost, customGroupType, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, syncing, syncMsg, syncOfficialLottery, initialize, login, logout, loadScope, loadGlobal, openDay, openOrder, openFollow, submitFollowOrder, openCustomOrder, randomCustomCode, submitCustomOrder, getOrderResolution, openPortfolioDialog, editPortfolioToday, savePortfolioModal, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient, switchView, syncHash };
+    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, roleLabel, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, customDialog, portfolioDialog, followForm, followTotalCost, customForm, customQuantity, customSelectedCode, customTotalCost, customGroupType, toggleBall, selectAllBalls, clearBalls, setCustomMode, formatOrderCode, orderModeTag, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, syncing, syncMsg, syncOfficialLottery, initialize, login, logout, loadScope, loadGlobal, openDay, openOrder, openFollow, submitFollowOrder, openCustomOrder, randomCustomCode, submitCustomOrder, getOrderResolution, openPortfolioDialog, editPortfolioToday, savePortfolioModal, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient, switchView, syncHash };
   },
 }).mount('#app');

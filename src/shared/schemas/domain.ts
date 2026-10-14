@@ -21,13 +21,16 @@ export const StrategyPortfolioSchema = z.strictObject({
 export const BetModeSchema = z.enum(['DIRECT', 'GROUP', 'GROUP_3', 'GROUP_6']);
 export type BetMode = z.infer<typeof BetModeSchema>;
 
+export const OrderCodeSchema = z.string()
+  .regex(/^([0-9]{3}|[0-9]{1,10}\|[0-9]{1,10}\|[0-9]{1,10}|(G3:)?[0-9]{1,10}\|[0-9]{1,10}|[0-9]{4,10})$/, '必须为 3 位数字或有效的排列三选号组合');
+
 export const OrderSlipSchema = z.strictObject({
   id: z.uuid(),
   storeId: z.uuid(),
   clientId: z.uuid(),
   date: z.iso.date(),
   adoptedStrategy: z.boolean().default(true),
-  selectedCode: ThreeDigitCodeSchema,
+  selectedCode: OrderCodeSchema,
   betMode: BetModeSchema.optional(),
   quantity: PositiveQuantitySchema,
   totalAmount: MonetaryAmountSchema,

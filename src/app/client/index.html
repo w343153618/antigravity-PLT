@@ -200,10 +200,10 @@
               <section class="records-section archive-section"><div class="section-heading"><h2>客户归属</h2><span class="muted small">累计 · 全部日期</span></div><div v-if="!attributionTotals.length" class="empty compact"><p>暂无客户</p></div><div v-else class="table-scroll" tabindex="0" aria-label="累计归属汇总表"><table><thead><tr><th>门店</th><th>店长</th><th class="numeric">客户数</th></tr></thead><tbody><tr v-for="item in attributionTotals" :key="item.storeId + item.managerId"><td>{{ storeName(item.storeId) }}</td><td>{{ item.managerId ? managerName(item.managerId) : '归属待确认' }}</td><td class="numeric">{{ item.clientCount }}</td></tr></tbody></table></div></section>
               <details class="records-section archive-section"><summary><span class="archive-title">归属统计</span><span class="archive-count">{{ attributionSummary.length }} 条</span></summary><div v-if="!attributionSummary.length" class="empty compact"><p>暂无记录，可切换日期查看</p></div><div v-else class="table-scroll" tabindex="0" aria-label="按日归属登记统计表"><table><thead><tr><th>日期</th><th>门店 / 店长</th><th class="numeric">建档</th><th class="numeric">迁移</th><th class="numeric">直接</th><th class="numeric">引荐</th><th class="numeric">合计</th></tr></thead><tbody><tr v-for="item in attributionSummary" :key="item.date + item.managerId"><td>{{ item.date }}</td><td>{{ storeName(item.storeId) }}<small>{{ managerName(item.managerId) }}</small></td><td class="numeric">{{ item.newClientCount }}</td><td class="numeric">{{ item.migrationCount }}</td><td class="numeric">{{ item.directCount }}</td><td class="numeric">{{ item.introducedCount }}</td><td class="numeric">{{ item.totalCount }}</td></tr></tbody></table></div></details>
               <details class="records-section archive-section"><summary><span class="archive-title">归属记录</span><span class="archive-count">{{ audits.length }} 条</span></summary><div v-if="!audits.length" class="empty compact"><p>暂无记录</p></div><div v-else class="table-scroll" tabindex="0" aria-label="归属与引荐审计表"><table><thead><tr><th>客户 / 记录时间</th><th>业务日期</th><th>门店 / 店长</th><th>引荐人</th><th>类型 / 备注</th></tr></thead><tbody><tr v-for="item in audits" :key="item.id"><td><strong>{{ clientName(item.clientId) }}</strong><small>{{ dateTime(item.createdAt) }}</small><small>{{ item.id.slice(0,8) }}</small></td><td>{{ item.date }}</td><td>{{ storeName(item.storeId) }}<small>{{ managerName(item.managerId) }}</small></td><td>{{ item.introducedByClientId ? clientName(item.introducedByClientId) : '直接建档' }}</td><td class="note-cell"><span :class="['status-tag', item.eventType === 'Migrated' ? 'waiting' : 'settled']">{{ item.eventType === 'Migrated' ? '迁移' : '建档' }}</span><small>{{ item.note }}</small></td></tr></tbody></table></div></details>
-              <details class="records-section archive-section"><summary><span class="archive-title">订单记录</span><span class="archive-count">{{ orders.length }} 笔 · {{ hqDate || '全部日期' }}</span></summary><div v-if="!orders.length" class="empty compact"><p>暂无记录</p></div><div v-else class="table-scroll" tabindex="0" aria-label="全量投注存根表"><table><thead><tr><th>客户 / 存根</th><th>所属门店 / 店长</th><th>业务日期</th><th>投注标的 / 类型</th><th class="numeric">数量与金额</th><th>开奖核验状态</th><th>纸质凭证存管</th></tr></thead><tbody><tr v-for="item in orders" :key="item.id"><td><strong>{{ clientName(item.clientId) }}</strong><small>{{ item.id.slice(0,8) }}</small></td><td>{{ storeName(item.storeId) }}<small>{{ managerName(item.managerId) }}</small></td><td>{{ item.date }}</td><td><strong class="number-code">{{ item.selectedCode }}</strong><span :class="['status-tag', item.adoptedStrategy ? 'hit-tag' : 'waiting']" style="margin-left: 6px;">{{ item.adoptedStrategy ? '精选跟单' : (item.betMode === 'GROUP' || item.betMode === 'GROUP_3' || item.betMode === 'GROUP_6' ? '自选·组选' : '自选·直选') }}</span></td><td class="numeric">{{ item.quantity }} 注 · {{ money(item.totalAmount) }}</td><td><span v-if="getOrderResolution(item).isResolved" :class="['status-tag', getOrderResolution(item).isHit ? 'hit-tag' : 'miss-tag']">{{ getOrderResolution(item).isHit ? '🎉 命中 (' + (getOrderResolution(item).isGroup ? '组选 ' : '') + getOrderResolution(item).settlementCode + ')' : '未中 (' + getOrderResolution(item).settlementCode + ')' }}</span><span v-else class="status-tag waiting">⏳ 待开奖</span></td><td><span :class="['status-tag', item.voucherStatus === 'Claimed' ? 'settled' : 'waiting']">{{ voucherLabel(item) }}</span></td></tr></tbody></table></div></details>
+              <details class="records-section archive-section"><summary><span class="archive-title">订单记录</span><span class="archive-count">{{ orders.length }} 笔 · {{ hqDate || '全部日期' }}</span></summary><div v-if="!orders.length" class="empty compact"><p>暂无记录</p></div><div v-else class="table-scroll" tabindex="0" aria-label="全量投注存根表"><table><thead><tr><th>客户 / 存根</th><th>所属门店 / 店长</th><th>业务日期</th><th>投注标的 / 类型</th><th class="numeric">数量与金额</th><th>开奖核验状态</th><th>纸质凭证存管</th></tr></thead><tbody><tr v-for="item in orders" :key="item.id"><td><strong>{{ clientName(item.clientId) }}</strong><small>{{ item.id.slice(0,8) }}</small></td><td>{{ storeName(item.storeId) }}<small>{{ managerName(item.managerId) }}</small></td><td>{{ item.date }}</td><td><strong class="number-code">{{ formatOrderCode(item) }}</strong><span :class="['status-tag', item.adoptedStrategy ? 'hit-tag' : 'waiting']" style="margin-left: 6px;">{{ orderModeTag(item) }}</span></td><td class="numeric">{{ item.quantity }} 注 · {{ money(item.totalAmount) }}</td><td><span v-if="getOrderResolution(item).isResolved" :class="['status-tag', getOrderResolution(item).isHit ? 'hit-tag' : 'miss-tag']">{{ getOrderResolution(item).isHit ? '🎉 命中 (' + (getOrderResolution(item).isGroup ? '组选 ' : '') + getOrderResolution(item).settlementCode + ')' : '未中 (' + getOrderResolution(item).settlementCode + ')' }}</span><span v-else class="status-tag waiting">⏳ 待开奖</span></td><td><span :class="['status-tag', item.voucherStatus === 'Claimed' ? 'settled' : 'waiting']">{{ voucherLabel(item) }}</span></td></tr></tbody></table></div></details>
             </template>
 
-            <details v-if="role !== 'hq'" class="records-section archive-section"><summary><span class="archive-title">历史记录</span><span class="archive-count">{{ orders.length }} 笔</span></summary><div v-if="!orders.length" class="empty"><h3>暂无记录</h3><p>{{ role === 'client' ? '历史存根会显示在这里。' : '已完成业务登记后显示在这里。' }}</p></div><div v-else class="table-scroll" tabindex="0" aria-label="历史存根与纸质凭证状态表，可上下及左右滚动"><table><thead><tr><th>客户 / 存根</th><th>日期</th><th>投注号码 / 模式</th><th class="numeric">数量与金额</th><th>开奖结果</th><th>纸质凭证状态</th><th v-if="role === 'manager'">领取登记</th></tr></thead><tbody><tr v-for="item in orders" :key="item.id"><td><strong>{{ clientName(item.clientId) }}</strong><small>{{ item.id.slice(0,8) }}</small></td><td>{{ item.date }}</td><td><strong class="number-code">{{ item.selectedCode }}</strong><span :class="['status-tag', item.adoptedStrategy ? 'hit-tag' : 'waiting']" style="margin-left: 6px;">{{ item.adoptedStrategy ? '精选跟单' : (item.betMode === 'GROUP' || item.betMode === 'GROUP_3' || item.betMode === 'GROUP_6' ? '自选·组选' : '自选·直选') }}</span></td><td class="numeric">{{ item.quantity }} 组 · {{ money(item.totalAmount) }}</td><td><span v-if="getOrderResolution(item).isResolved" :class="['status-tag', getOrderResolution(item).isHit ? 'hit-tag' : 'miss-tag']">{{ getOrderResolution(item).isHit ? '🎉 命中 (' + (getOrderResolution(item).isGroup ? '组选 ' : '') + getOrderResolution(item).settlementCode + ')' : '未中 (' + getOrderResolution(item).settlementCode + ')' }}</span><span v-else class="status-tag waiting">⏳ 待开奖</span></td><td><span :class="['status-tag', item.voucherStatus === 'Claimed' ? 'settled' : 'waiting']">{{ voucherLabel(item) }}</span></td><td v-if="role === 'manager'"><button v-if="item.voucherStatus !== 'Claimed'" type="button" class="table-action" :disabled="!!pending" @click="claimVoucher(item)">{{ pending === 'voucher-' + item.id ? '记录中…' : '确认客户已领取' }}</button><span v-else class="muted small">领取记录已确认</span></td></tr></tbody></table></div></details>
+            <details v-if="role !== 'hq'" class="records-section archive-section"><summary><span class="archive-title">历史记录</span><span class="archive-count">{{ orders.length }} 笔</span></summary><div v-if="!orders.length" class="empty"><h3>暂无记录</h3><p>{{ role === 'client' ? '历史存根会显示在这里。' : '已完成业务登记后显示在这里。' }}</p></div><div v-else class="table-scroll" tabindex="0" aria-label="历史存根与纸质凭证状态表，可上下及左右滚动"><table><thead><tr><th>客户 / 存根</th><th>日期</th><th>投注号码 / 模式</th><th class="numeric">数量与金额</th><th>开奖结果</th><th>纸质凭证状态</th><th v-if="role === 'manager'">领取登记</th></tr></thead><tbody><tr v-for="item in orders" :key="item.id"><td><strong>{{ clientName(item.clientId) }}</strong><small>{{ item.id.slice(0,8) }}</small></td><td>{{ item.date }}</td><td><strong class="number-code">{{ formatOrderCode(item) }}</strong><span :class="['status-tag', item.adoptedStrategy ? 'hit-tag' : 'waiting']" style="margin-left: 6px;">{{ orderModeTag(item) }}</span></td><td class="numeric">{{ item.quantity }} 组 · {{ money(item.totalAmount) }}</td><td><span v-if="getOrderResolution(item).isResolved" :class="['status-tag', getOrderResolution(item).isHit ? 'hit-tag' : 'miss-tag']">{{ getOrderResolution(item).isHit ? '🎉 命中 (' + (getOrderResolution(item).isGroup ? '组选 ' : '') + getOrderResolution(item).settlementCode + ')' : '未中 (' + getOrderResolution(item).settlementCode + ')' }}</span><span v-else class="status-tag waiting">⏳ 待开奖</span></td><td><span :class="['status-tag', item.voucherStatus === 'Claimed' ? 'settled' : 'waiting']">{{ voucherLabel(item) }}</span></td><td v-if="role === 'manager'"><button v-if="item.voucherStatus !== 'Claimed'" type="button" class="table-action" :disabled="!!pending" @click="claimVoucher(item)">{{ pending === 'voucher-' + item.id ? '记录中…' : '确认客户已领取' }}</button><span v-else class="muted small">领取记录已确认</span></td></tr></tbody></table></div></details>
 
             <details class="records-section archive-section"><summary><span class="archive-title">收支流水</span><span class="archive-count">{{ ledger.length }} 条</span></summary><div v-if="!ledger.length" class="empty compact"><p>暂无流水</p></div><div v-else class="table-scroll" tabindex="0" aria-label="收支对账流水表，可上下及左右滚动"><table><thead><tr><th>客户 / 业务日期</th><th>调整方向</th><th class="numeric">调整金额</th><th class="numeric">调整后结余</th><th>调整原因</th><th>操作店长 / 时间</th></tr></thead><tbody><tr v-for="item in ledger" :key="item.id"><td><strong>{{ clientName(item.clientId) }}</strong><small>{{ item.date }}</small><small v-if="role === 'hq'">{{ storeName(item.storeId) }}</small></td><td><span :class="['status-tag', item.direction === 'ADJUST_IN' ? 'settled' : 'waiting']">{{ item.direction === 'ADJUST_IN' ? '增加结余' : '核减结余' }}</span></td><td class="numeric">{{ item.direction === 'ADJUST_IN' ? '+' : '−' }}{{ money(item.amount) }}</td><td class="numeric">{{ money(item.balanceAfter) }}</td><td class="note-cell">{{ item.note }}</td><td>{{ managerName(item.managerId) }}<small>{{ dateTime(item.createdAt) }}</small><small>{{ item.id.slice(0,8) }}</small></td></tr></tbody></table></div></details>
 
@@ -304,45 +304,159 @@
       </div>
       <p v-if="formError && failedForm === 'custom-order'" class="notice error" role="alert">{{ formError }}</p>
 
-      <div style="display: flex; gap: 8px; margin-bottom: 14px;">
-        <button type="button" :class="['mode-tab', { primary: customForm.betMode === 'DIRECT' }]" @click="customForm.betMode = 'DIRECT'" style="flex: 1; min-height: 38px; font-size: 0.88rem;">直选</button>
-        <button type="button" :class="['mode-tab', { primary: customForm.betMode === 'GROUP' }]" @click="customForm.betMode = 'GROUP'" style="flex: 1; min-height: 38px; font-size: 0.88rem;">组选</button>
+      <div class="bet-mode-bar">
+        <button type="button" :class="['bet-mode-btn', { primary: customForm.betMode === 'DIRECT' }]" @click="setCustomMode('DIRECT')">直选 (定位)</button>
+        <button type="button" :class="['bet-mode-btn', { primary: customForm.betMode === 'GROUP_6' }]" @click="setCustomMode('GROUP_6')">组选六</button>
+        <button type="button" :class="['bet-mode-btn', { primary: customForm.betMode === 'GROUP_3' }]" @click="setCustomMode('GROUP_3')">组选三</button>
       </div>
 
-      <label>3 位数字
-        <div style="display: flex; gap: 8px; margin-top: 6px;">
-          <input v-model.trim="customForm.selectedCode" inputmode="numeric" pattern="[0-9]{3}" minlength="3" maxlength="3" required placeholder="890" :disabled="!!pending" style="font-size: 1.5rem; letter-spacing: 4px; text-align: center; font-weight: bold; color: var(--green); flex: 1; margin-top: 0;">
-          <button type="button" @click="randomCustomCode" :disabled="!!pending" style="padding: 0 14px; font-size: 0.85rem; white-space: nowrap;">🎲 机选</button>
+      <!-- 直选复式/单式选球 -->
+      <template v-if="customForm.betMode === 'DIRECT'">
+        <div class="ball-row">
+          <div class="ball-row-header">
+            <div>
+              <span class="ball-row-title">第一位 (百位)</span>
+              <span class="ball-row-count">已选 {{ customForm.directPos1.length }} 个</span>
+            </div>
+            <div class="ball-row-actions">
+              <button type="button" class="ball-action-btn" @click="selectAllBalls(customForm.directPos1)">全</button>
+              <button type="button" class="ball-action-btn" @click="clearBalls(customForm.directPos1)">清</button>
+            </div>
+          </div>
+          <div class="ball-group">
+            <button v-for="d in '0123456789'.split('')" :key="'pos1-' + d" type="button" :class="['number-ball', { selected: customForm.directPos1.includes(d) }]" @click="toggleBall(customForm.directPos1, d)">
+              {{ d }}
+            </button>
+          </div>
         </div>
-      </label>
 
-      <div v-if="customForm.betMode === 'DIRECT'" style="margin-top: 8px; font-size: 0.82rem; color: var(--muted);">
-        顺序须完全一致 · 单注奖金 ¥1,040
-      </div>
-      <div v-else style="margin-top: 8px; font-size: 0.82rem;">
-        <span v-if="!customGroupType" style="color: var(--muted);">不限顺序 · 组三 ¥346 · 组六 ¥173</span>
-        <span v-else-if="!customGroupType.valid" style="color: #a02432; font-weight: 600;">⚠️ 豹子号（三位相同）不支持组选，请选直选</span>
-        <span v-else style="color: var(--green); font-weight: 600;">✨ {{ customGroupType.label }} · 单注奖金 ¥{{ customGroupType.quota }}</span>
-      </div>
+        <div class="ball-row">
+          <div class="ball-row-header">
+            <div>
+              <span class="ball-row-title">第二位 (十位)</span>
+              <span class="ball-row-count">已选 {{ customForm.directPos2.length }} 个</span>
+            </div>
+            <div class="ball-row-actions">
+              <button type="button" class="ball-action-btn" @click="selectAllBalls(customForm.directPos2)">全</button>
+              <button type="button" class="ball-action-btn" @click="clearBalls(customForm.directPos2)">清</button>
+            </div>
+          </div>
+          <div class="ball-group">
+            <button v-for="d in '0123456789'.split('')" :key="'pos2-' + d" type="button" :class="['number-ball', { selected: customForm.directPos2.includes(d) }]" @click="toggleBall(customForm.directPos2, d)">
+              {{ d }}
+            </button>
+          </div>
+        </div>
 
-      <div class="form-row" style="margin-top: 12px;">
-        <label>注数
-          <input v-model.number="customForm.quantity" type="number" min="1" max="1000" step="1" required :disabled="!!pending">
-        </label>
-        <label>倍投
+        <div class="ball-row">
+          <div class="ball-row-header">
+            <div>
+              <span class="ball-row-title">第三位 (个位)</span>
+              <span class="ball-row-count">已选 {{ customForm.directPos3.length }} 个</span>
+            </div>
+            <div class="ball-row-actions">
+              <button type="button" class="ball-action-btn" @click="selectAllBalls(customForm.directPos3)">全</button>
+              <button type="button" class="ball-action-btn" @click="clearBalls(customForm.directPos3)">清</button>
+            </div>
+          </div>
+          <div class="ball-group">
+            <button v-for="d in '0123456789'.split('')" :key="'pos3-' + d" type="button" :class="['number-ball', { selected: customForm.directPos3.includes(d) }]" @click="toggleBall(customForm.directPos3, d)">
+              {{ d }}
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top: 8px; font-size: 0.82rem; color: var(--muted); display: flex; justify-content: space-between; align-items: center;">
+          <span>唯一排列中奖 · 单注奖金 ¥1,040</span>
+          <button type="button" class="text-button" @click="randomCustomCode" style="min-height: 28px; font-size: 0.82rem;">🎲 机选一注</button>
+        </div>
+      </template>
+
+      <!-- 组选六选球 -->
+      <template v-if="customForm.betMode === 'GROUP_6'">
+        <div class="ball-row">
+          <div class="ball-row-header">
+            <div>
+              <span class="ball-row-title">选号区 (选 ≥ 3 个不同数字)</span>
+              <span class="ball-row-count">已选 {{ customForm.group6Balls.length }} 个</span>
+            </div>
+            <div class="ball-row-actions">
+              <button type="button" class="ball-action-btn" @click="selectAllBalls(customForm.group6Balls)">全</button>
+              <button type="button" class="ball-action-btn" @click="clearBalls(customForm.group6Balls)">清</button>
+            </div>
+          </div>
+          <div class="ball-group">
+            <button v-for="d in '0123456789'.split('')" :key="'g6-' + d" type="button" :class="['number-ball', { selected: customForm.group6Balls.includes(d) }]" @click="toggleBall(customForm.group6Balls, d)">
+              {{ d }}
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top: 8px; font-size: 0.82rem; color: var(--muted); display: flex; justify-content: space-between; align-items: center;">
+          <span>三不同号全排列作为一注 · 单注奖金 ¥173</span>
+          <button type="button" class="text-button" @click="randomCustomCode" style="min-height: 28px; font-size: 0.82rem;">🎲 机选一注</button>
+        </div>
+      </template>
+
+      <!-- 组选三选球 -->
+      <template v-if="customForm.betMode === 'GROUP_3'">
+        <div class="ball-row">
+          <div class="ball-row-header">
+            <div>
+              <span class="ball-row-title">重号位 (出现 2 次的数字)</span>
+              <span class="ball-row-count">已选 {{ customForm.group3Repeats.length }} 个</span>
+            </div>
+            <div class="ball-row-actions">
+              <button type="button" class="ball-action-btn" @click="clearBalls(customForm.group3Repeats)">清</button>
+            </div>
+          </div>
+          <div class="ball-group">
+            <button v-for="d in '0123456789'.split('')" :key="'g3r-' + d" type="button" :class="['number-ball', { selected: customForm.group3Repeats.includes(d) }]" @click="toggleBall(customForm.group3Repeats, d)">
+              {{ d }}
+            </button>
+          </div>
+        </div>
+
+        <div class="ball-row">
+          <div class="ball-row-header">
+            <div>
+              <span class="ball-row-title">单号位 (出现 1 次的数字)</span>
+              <span class="ball-row-count">已选 {{ customForm.group3Singles.length }} 个</span>
+            </div>
+            <div class="ball-row-actions">
+              <button type="button" class="ball-action-btn" @click="clearBalls(customForm.group3Singles)">清</button>
+            </div>
+          </div>
+          <div class="ball-group">
+            <button v-for="d in '0123456789'.split('')" :key="'g3s-' + d" type="button" :class="['number-ball', { selected: customForm.group3Singles.includes(d) }]" @click="toggleBall(customForm.group3Singles, d)">
+              {{ d }}
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top: 8px; font-size: 0.82rem; color: var(--muted); display: flex; justify-content: space-between; align-items: center;">
+          <span>二同号全排列作为一注 · 单注奖金 ¥346</span>
+          <button type="button" class="text-button" @click="randomCustomCode" style="min-height: 28px; font-size: 0.82rem;">🎲 机选一注</button>
+        </div>
+      </template>
+
+      <div style="display: flex; gap: 12px; align-items: center; margin-top: 14px;">
+        <label style="margin-top: 0; flex: 1;">倍投（倍数）
           <input v-model.number="customForm.multiplier" type="number" min="1" max="999" step="1" required :disabled="!!pending">
         </label>
       </div>
-      <div class="balance-preview" style="margin-top: 18px;">
-        <span>单注 <strong>¥2.00</strong></span>
-        <span>支付 <strong>¥{{ customTotalCost.toFixed(2) }}</strong></span>
+
+      <div class="balance-preview" style="margin-top: 14px;">
+        <span>已选 <strong>{{ customQuantity }} 注</strong></span>
+        <span>金额 <strong>¥{{ customTotalCost.toFixed(2) }}</strong></span>
         <span>余额 <strong>{{ client ? money(client.reconciliationBalance) : '¥0.00' }}</strong></span>
         <p v-if="client && client.reconciliationBalance < customTotalCost" class="field-error" style="color: #a02432; font-size: 0.88rem; margin-top: 8px;">
           余额不足（差 ¥{{ (customTotalCost - client.reconciliationBalance).toFixed(2) }}）
         </p>
       </div>
-      <button type="submit" class="primary wide" :disabled="!!pending || !client || client.reconciliationBalance < customTotalCost || !/^[0-9]{3}$/.test(customForm.selectedCode) || (customForm.betMode === 'GROUP' && customGroupType && !customGroupType.valid)">
-        {{ pending === 'custom-order' ? '正在投注扣款…' : '确认投注 (¥' + customTotalCost.toFixed(2) + ')' }}
+
+      <button type="submit" class="primary wide" :disabled="!!pending || !client || client.reconciliationBalance < customTotalCost || customQuantity === 0">
+        {{ pending === 'custom-order' ? '正在投注扣款…' : '确认投注 (' + customQuantity + '注 · ¥' + customTotalCost.toFixed(2) + ')' }}
       </button>
     </form>
   </dialog>

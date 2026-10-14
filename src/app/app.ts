@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { z, ZodError } from 'zod';
 import { createDatabase } from '../shared/database.ts';
 import { DomainError } from '../shared/errors.ts';
-import { BetModeSchema, OrderSlipSchema, StrategyPortfolioSchema } from '../shared/schemas/index.ts';
+import { BetModeSchema, OrderCodeSchema, OrderSlipSchema, StrategyPortfolioSchema } from '../shared/schemas/index.ts';
 import { StoreSchema, StoreManagerSchema, ClientSchema } from '../shared/schemas/store.ts';
 import { createStoreModule } from '../modules/store/index.ts';
 import { createStrategyModule } from '../modules/strategy/index.ts';
@@ -225,7 +225,7 @@ export async function buildApp(options: AppOptions = {}) {
     return reply.send(updated);
   });
   const clientOrderInput = z.strictObject({
-    selectedCode: z.string().regex(/^\d{3}$/, '号码须为3位数字'),
+    selectedCode: OrderCodeSchema,
     multiplier: z.number().int().min(1).max(9999),
     quantity: z.number().int().min(1).max(9999).default(1),
     adoptedStrategy: z.boolean().default(true),
@@ -241,8 +241,9 @@ export async function buildApp(options: AppOptions = {}) {
 
     const isGroupBet = input.betMode === 'GROUP' || input.betMode === 'GROUP_3' || input.betMode === 'GROUP_6';
     if (isGroupBet) {
-      const uniqueDigits = new Set(input.selectedCode).size;
-      if (uniqueDigits === 1) {
+      const cleanDigits = input.selectedCode.replace(/[^0-9]/g, '');
+      const uniqueDigits = new Set(cleanDigits).size;
+      if (uniqueDigits === 1 && cleanDigits.length === 3) {
         throw new DomainError('豹子号（三位相同）不支持组选，请选择直选', 400);
       }
     }
@@ -258,9 +259,13 @@ export async function buildApp(options: AppOptions = {}) {
     const matchesStrategy = portfolio?.combos.some(c => c.code === input.selectedCode) ?? false;
     const adoptedStrategy = Boolean(input.adoptedStrategy && matchesStrategy);
 
-    const betModeLabel = isGroupBet
-      ? (new Set(input.selectedCode).size === 2 ? '组选三' : '组选六')
-      : '直选';
+    const betModeLabel = input.betMode === 'GROUP_3'
+      ? '组选三'
+      : input.betMode === 'GROUP_6'
+      ? '组选六'
+      : input.betMode === 'GROUP'
+      ? (new Set(input.selectedCode.replace(/[^0-9]/g, '')).size === 2 ? '组选三' : '组选六')
+      : (input.selectedCode.includes('|') ? '直选复式' : '直选');
 
     const order = db.transaction(() => {
       // 1. 扣减预存余额并写入对账流水

@@ -35,16 +35,61 @@ export interface RegistryStrategy {
 
 export function isOrderHit(selectedCode: string, settlementCode: string, betMode?: string): boolean {
   if (!betMode || betMode === 'DIRECT') {
+    if (selectedCode.includes('|')) {
+      const [p1, p2, p3] = selectedCode.split('|');
+      return Boolean(p1?.includes(settlementCode[0]!) && p2?.includes(settlementCode[1]!) && p3?.includes(settlementCode[2]!));
+    }
     return selectedCode === settlementCode;
   }
-  return [...selectedCode].sort().join('') === [...settlementCode].sort().join('');
+  if (betMode === 'GROUP_6') {
+    if (new Set(settlementCode).size !== 3) return false;
+    return [...settlementCode].every(d => selectedCode.includes(d));
+  }
+  if (betMode === 'GROUP_3') {
+    if (new Set(settlementCode).size !== 2) return false;
+    const counts: Record<string, number> = {};
+    for (const d of settlementCode) counts[d] = (counts[d] || 0) + 1;
+    let repeat = '', single = '';
+    for (const [d, c] of Object.entries(counts)) {
+      if (c === 2) repeat = d;
+      else if (c === 1) single = d;
+    }
+    if (!repeat || !single) return false;
+    if (selectedCode.includes('|')) {
+      const [repeats, singles] = selectedCode.replace(/^G3:/, '').split('|');
+      return Boolean(repeats?.includes(repeat) && singles?.includes(single));
+    }
+    if (selectedCode.length === 3) {
+      return [...selectedCode].sort().join('') === [...settlementCode].sort().join('');
+    }
+    return selectedCode.includes(repeat) && selectedCode.includes(single);
+  }
+  // Generic GROUP fallback
+  if (selectedCode.includes('|')) {
+    const parts = selectedCode.split('|');
+    if (parts.length === 3) return isOrderHit(selectedCode, settlementCode, 'DIRECT');
+    return isOrderHit(selectedCode, settlementCode, 'GROUP_3');
+  }
+  if (selectedCode.length === 3) {
+    return [...selectedCode].sort().join('') === [...settlementCode].sort().join('');
+  }
+  if (new Set(settlementCode).size === 3) {
+    return [...settlementCode].every(d => selectedCode.includes(d));
+  }
+  return false;
 }
 
 export function getOrderQuota(selectedCode: string, baseQuota: number, betMode?: string): number {
   if (!betMode || betMode === 'DIRECT') {
     return baseQuota;
   }
-  const digits = new Set(selectedCode);
+  if (betMode === 'GROUP_6') {
+    return 173;
+  }
+  if (betMode === 'GROUP_3') {
+    return 346;
+  }
+  const digits = new Set(selectedCode.replace(/[^0-9]/g, ''));
   if (digits.size === 2) {
     return baseQuota === 1040 ? 346 : Math.round((baseQuota * 346) / 1040 * 100) / 100;
   }

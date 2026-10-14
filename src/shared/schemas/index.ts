@@ -1,5 +1,6 @@
 export {
   ThreeDigitCodeSchema,
+  OrderCodeSchema,
   BetModeSchema,
   OutcomeStatusSchema,
   VoucherStatusSchema,
