@@ -217,6 +217,52 @@ it('allows client to open custom order and generate random numbers', async () =>
   const state = browser.state as any;
   state.openCustomOrder();
   expect(state.customForm.selectedCode).toBe('');
+  expect(state.customForm.betMode).toBe('DIRECT');
   state.randomCustomCode();
   expect(state.customForm.selectedCode).toMatch(/^[0-9]{3}$/);
+});
+
+it('supports client UI group betting mode switching and dynamic group type detection', async () => {
+  const browser = await harness();
+  await browser.login('user');
+  const state = browser.state as any;
+  state.openCustomOrder();
+
+  // 1. Initial mode is DIRECT
+  expect(state.customForm.betMode).toBe('DIRECT');
+  state.customForm.betMode = 'GROUP';
+  expect(state.customForm.betMode).toBe('GROUP');
+
+  // 2. Dynamic group detection
+  state.customForm.selectedCode = '111';
+  expect(state.customGroupType.value).toEqual({
+    type: 'LEOPARD', label: '豹子号不支持组选', valid: false, quota: 0,
+  });
+
+  state.customForm.selectedCode = '112';
+  expect(state.customGroupType.value).toEqual({
+    type: 'GROUP_3', label: '组选三', valid: true, quota: 346,
+  });
+
+  state.customForm.selectedCode = '123';
+  expect(state.customGroupType.value).toEqual({
+    type: 'GROUP_6', label: '组选六', valid: true, quota: 173,
+  });
+
+  // 3. Test resolution evaluation for group bet
+  state.calendar.value = [
+    { date: '2026-10-13', status: 'Hit', resolution: { settlementCode: '321', quotaPerUnit: 1040 } },
+  ];
+  const groupOrder = { date: '2026-10-13', selectedCode: '123', betMode: 'GROUP' };
+  const resGroup = state.getOrderResolution(groupOrder);
+  expect(resGroup.isResolved).toBe(true);
+  expect(resGroup.isHit).toBe(true);
+  expect(resGroup.isGroup).toBe(true);
+  expect(resGroup.quotaPerUnit).toBe(173);
+
+  const directOrder = { date: '2026-10-13', selectedCode: '123', betMode: 'DIRECT' };
+  const resDirect = state.getOrderResolution(directOrder);
+  expect(resDirect.isResolved).toBe(true);
+  expect(resDirect.isHit).toBe(false);
+  expect(resDirect.isGroup).toBe(false);
 });

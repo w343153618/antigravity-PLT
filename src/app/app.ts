@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { z, ZodError } from 'zod';
 import { createDatabase } from '../shared/database.ts';
 import { DomainError } from '../shared/errors.ts';
-import { OrderSlipSchema, StrategyPortfolioSchema } from '../shared/schemas/index.ts';
+import { BetModeSchema, OrderSlipSchema, StrategyPortfolioSchema } from '../shared/schemas/index.ts';
 import { StoreSchema, StoreManagerSchema, ClientSchema } from '../shared/schemas/store.ts';
 import { createStoreModule } from '../modules/store/index.ts';
 import { createStrategyModule } from '../modules/strategy/index.ts';
@@ -229,6 +229,7 @@ export async function buildApp(options: AppOptions = {}) {
     multiplier: z.number().int().min(1).max(9999),
     quantity: z.number().int().min(1).max(9999).default(1),
     adoptedStrategy: z.boolean().default(true),
+    betMode: BetModeSchema.optional().default('DIRECT'),
   });
   app.post('/api/client/orders', async (request, reply) => {
     const actor = access.actor(request);
@@ -237,6 +238,14 @@ export async function buildApp(options: AppOptions = {}) {
     const clientRecord = stores.getClient(actor.clientId);
     if (!clientRecord) throw new DomainError('客户档案不存在', 404);
     if (!clientRecord.managerId) throw new DomainError('客户尚未绑定店长，请联系门店店长处理', 400);
+
+    const isGroupBet = input.betMode === 'GROUP' || input.betMode === 'GROUP_3' || input.betMode === 'GROUP_6';
+    if (isGroupBet) {
+      const uniqueDigits = new Set(input.selectedCode).size;
+      if (uniqueDigits === 1) {
+        throw new DomainError('豹子号（三位相同）不支持组选，请选择直选', 400);
+      }
+    }
 
     const unitPrice = 2; // 2元每注
     const totalCost = unitPrice * input.multiplier * input.quantity;
@@ -249,6 +258,10 @@ export async function buildApp(options: AppOptions = {}) {
     const matchesStrategy = portfolio?.combos.some(c => c.code === input.selectedCode) ?? false;
     const adoptedStrategy = Boolean(input.adoptedStrategy && matchesStrategy);
 
+    const betModeLabel = isGroupBet
+      ? (new Set(input.selectedCode).size === 2 ? '组选三' : '组选六')
+      : '直选';
+
     const order = db.transaction(() => {
       // 1. 扣减预存余额并写入对账流水
       reconciliation.adjust({
@@ -257,7 +270,7 @@ export async function buildApp(options: AppOptions = {}) {
         date: today,
         direction: 'ADJUST_OUT',
         amount: totalCost,
-        note: `${adoptedStrategy ? '跟单扣款' : '自选扣款'}：排列三 ${input.selectedCode} × ${input.quantity}注 × ${input.multiplier}倍`,
+        note: `${adoptedStrategy ? '跟单扣款' : `自选扣款（${betModeLabel}）`}：排列三 ${input.selectedCode} × ${input.quantity}注 × ${input.multiplier}倍`,
       });
       // 2. 生成投注存根记录
       const registered = registry.registerOrder(clientRecord.managerId!, {
@@ -271,6 +284,7 @@ export async function buildApp(options: AppOptions = {}) {
         adoptedStrategy,
         voucherStatus: 'StoredInShop',
         createdAt: new Date(),
+        betMode: input.betMode,
       });
       return registered.orderSlip;
     });

@@ -213,4 +213,77 @@ describe('HTTP application', () => {
       expect(claimRes.json().voucherStatus).toBe('Claimed');
     } finally { await app.close(); }
   });
+
+  it('supports group betting (组选) and validates leopard rejection & resolution hits', async () => {
+    const app = await buildApp({ databasePath: ':memory:', today: '2026-10-13', ...authOptions });
+    try {
+      const clientUser = await login(app, 'user');
+      const hqUser = await login(app, 'admin');
+
+      // 1. Group bet with leopard number (e.g. 888) is rejected
+      const leopardRes = await clientUser.inject({
+        method: 'POST',
+        url: '/api/client/orders',
+        payload: { selectedCode: '888', quantity: 1, multiplier: 1, adoptedStrategy: false, betMode: 'GROUP' },
+      });
+      expect(leopardRes.statusCode).toBe(400);
+      expect(leopardRes.json().error).toContain('豹子号');
+
+      // 2. Group bet 组选六 (123) and 组选三 (112)
+      const group6Res = await clientUser.inject({
+        method: 'POST',
+        url: '/api/client/orders',
+        payload: { selectedCode: '123', quantity: 1, multiplier: 1, adoptedStrategy: false, betMode: 'GROUP' },
+      });
+      expect(group6Res.statusCode).toBe(201);
+      const group6Order = group6Res.json();
+      expect(group6Order.betMode).toBe('GROUP');
+
+      const group3Res = await clientUser.inject({
+        method: 'POST',
+        url: '/api/client/orders',
+        payload: { selectedCode: '112', quantity: 1, multiplier: 1, adoptedStrategy: false, betMode: 'GROUP' },
+      });
+      expect(group3Res.statusCode).toBe(201);
+      const group3Order = group3Res.json();
+      expect(group3Order.betMode).toBe('GROUP');
+
+      // Direct bet with 123 for comparison
+      const directRes = await clientUser.inject({
+        method: 'POST',
+        url: '/api/client/orders',
+        payload: { selectedCode: '123', quantity: 1, multiplier: 1, adoptedStrategy: false, betMode: 'DIRECT' },
+      });
+      expect(directRes.statusCode).toBe(201);
+      const directOrder = directRes.json();
+      expect(directOrder.betMode).toBe('DIRECT');
+
+      // 3. Official resolution draws 321
+      // 123 (GROUP) should hit as 组选六 with quota 173
+      // 123 (DIRECT) should miss
+      const res = await hqUser.inject({
+        method: 'POST',
+        url: '/api/resolutions',
+        payload: { date: '2026-10-13', settlementCode: '321', quotaPerUnit: 1040 },
+      });
+      expect(res.statusCode).toBe(200);
+
+      const bills = (await hqUser.inject('/api/hq/orders')).json();
+      const foundGroup6 = bills.find((o: { id: string }) => o.id === group6Order.id);
+      expect(foundGroup6).toBeDefined();
+
+      // Check store bills for client net gain
+      const storeBills = (await hqUser.inject(`/api/stores/${clientUser.actor.storeId}/bills`)).json();
+      const group6Bill = storeBills.find((b: { orderSlipId: string }) => b.orderSlipId === group6Order.id);
+      expect(group6Bill).toBeDefined();
+      // Hit quota for 组选六 is 173; net gain is 173 - 2 = 171.
+      // Since adoptedStrategy is false (custom pick), no service fee is charged, client keeps 100% of net gain: 171
+      expect(group6Bill.clientNetGain).toBe(171);
+
+      // Direct order 123 vs 321 did not hit, so grossGain and clientNetGain are 0
+      const directBill = storeBills.find((b: { orderSlipId: string }) => b.orderSlipId === directOrder.id);
+      expect(directBill?.grossGain).toBe(0);
+      expect(directBill?.clientNetGain).toBe(0);
+    } finally { await app.close(); }
+  });
 });

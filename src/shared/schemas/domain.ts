@@ -18,6 +18,9 @@ export const StrategyPortfolioSchema = z.strictObject({
   createdAt: z.date(),
 });
 
+export const BetModeSchema = z.enum(['DIRECT', 'GROUP', 'GROUP_3', 'GROUP_6']);
+export type BetMode = z.infer<typeof BetModeSchema>;
+
 export const OrderSlipSchema = z.strictObject({
   id: z.uuid(),
   storeId: z.uuid(),
@@ -25,6 +28,7 @@ export const OrderSlipSchema = z.strictObject({
   date: z.iso.date(),
   adoptedStrategy: z.boolean().default(true),
   selectedCode: ThreeDigitCodeSchema,
+  betMode: BetModeSchema.optional(),
   quantity: PositiveQuantitySchema,
   totalAmount: MonetaryAmountSchema,
   voucherStatus: VoucherStatusSchema.default('StoredInShop'),

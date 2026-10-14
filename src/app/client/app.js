@@ -36,7 +36,7 @@ createApp({
     const customDialog = ref(null);
     const portfolioDialog = ref(null);
     const followForm = reactive({ selectedCode: '', quantity: 1, multiplier: 1 });
-    const customForm = reactive({ selectedCode: '', quantity: 1, multiplier: 1 });
+    const customForm = reactive({ selectedCode: '', quantity: 1, multiplier: 1, betMode: 'DIRECT' });
     const management = ref(false);
     const hqDate = ref('');
     let sessionEpoch = 0;
@@ -94,6 +94,14 @@ createApp({
       const q = Math.max(1, Number(customForm.quantity) || 1);
       const m = Math.max(1, Number(customForm.multiplier) || 1);
       return q * m * 2;
+    });
+    const customGroupType = computed(() => {
+      const code = (customForm.selectedCode || '').trim();
+      if (!/^\d{3}$/.test(code)) return null;
+      const size = new Set(code).size;
+      if (size === 1) return { type: 'LEOPARD', label: '豹子号不支持组选', valid: false, quota: 0 };
+      if (size === 2) return { type: 'GROUP_3', label: '组选三', valid: true, quota: 346 };
+      return { type: 'GROUP_6', label: '组选六', valid: true, quota: 173 };
     });
     const hitCount = computed(() => calendar.value.filter(item => item.status === 'Hit').length);
     const verifiedCount = computed(() => calendar.value.filter(item => item.status).length);
@@ -463,6 +471,7 @@ createApp({
       customForm.selectedCode = '';
       customForm.quantity = 1;
       customForm.multiplier = 1;
+      customForm.betMode = 'DIRECT';
       formError.value = '';
       failedForm.value = '';
       customDialog.value?.showModal();
@@ -472,11 +481,16 @@ createApp({
     }
     function submitCustomOrder() {
       return perform('custom-order', async () => {
+        const code = customForm.selectedCode.trim();
+        if (customForm.betMode === 'GROUP' && new Set(code).size === 1) {
+          throw new Error('豹子号（三位相同）体彩不支持组选，请切换为直选。');
+        }
         const order = await api('/api/client/orders', {
-          selectedCode: customForm.selectedCode.trim(),
+          selectedCode: code,
           quantity: Number(customForm.quantity),
           multiplier: Number(customForm.multiplier),
           adoptedStrategy: false,
+          betMode: customForm.betMode,
         });
         customDialog.value?.close();
         notify(`自主选号投注成功！已生成存根 ${order.id.slice(0, 8)} 并扣除结余 ¥${customTotalCost.value.toFixed(2)}`);
@@ -486,13 +500,22 @@ createApp({
     function getOrderResolution(order) {
       const day = calendar.value.find(item => item.date === order.date);
       if (!day || !day.resolution) {
-        return { isResolved: false, isHit: false, settlementCode: '' };
+        return { isResolved: false, isHit: false, isGroup: false, settlementCode: '' };
       }
+      const isGroup = order.betMode === 'GROUP' || order.betMode === 'GROUP_3' || order.betMode === 'GROUP_6';
+      const isHit = isGroup
+        ? [...order.selectedCode].sort().join('') === [...day.resolution.settlementCode].sort().join('')
+        : day.resolution.settlementCode === order.selectedCode;
+      const digits = new Set(order.selectedCode);
+      const quotaPerUnit = isGroup
+        ? (digits.size === 2 ? 346 : 173)
+        : day.resolution.quotaPerUnit;
       return {
         isResolved: true,
-        isHit: day.resolution.settlementCode === order.selectedCode,
+        isHit,
+        isGroup,
         settlementCode: day.resolution.settlementCode,
-        quotaPerUnit: day.resolution.quotaPerUnit,
+        quotaPerUnit,
       };
     }
     function openPortfolioDialog(forEdit = true) {
@@ -587,6 +610,6 @@ createApp({
       }
       initialize();
     });
-    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, roleLabel, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, customDialog, portfolioDialog, followForm, followTotalCost, customForm, customTotalCost, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, syncing, syncMsg, syncOfficialLottery, initialize, login, logout, loadScope, loadGlobal, openDay, openOrder, openFollow, submitFollowOrder, openCustomOrder, randomCustomCode, submitCustomOrder, getOrderResolution, openPortfolioDialog, editPortfolioToday, savePortfolioModal, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient, switchView, syncHash };
+    return { view, bootstrap, session, authChecking, authBusy, authError, logoutUnconfirmed, loginForm, role, roleTitle, roleLabel, manager, store, client, ownClients, portfolio, calendar, clients, orders, bills, ledger, audits, attributionSummary, attributionTotals, summary, storedCount, loading, scopeLoading, error, scopeError, formError, failedForm, pending, toast, day, dayDialog, orderDialog, followDialog, customDialog, portfolioDialog, followForm, followTotalCost, customForm, customTotalCost, customGroupType, isEditingPortfolio, orderForm, adjustmentForm, adjustmentUnconfirmed, adjustmentClient, adjustmentBalance, adjustmentInvalid, startAdjustment, resultForm, portfolioForm, storeForm, managerForm, clientForm, management, hqDate, title, hitCount, verifiedCount, calendarPadding, billMap, money, shortDate, dateTime, clientName, managerName, storeName, statusLabel, voucherLabel, syncing, syncMsg, syncOfficialLottery, initialize, login, logout, loadScope, loadGlobal, openDay, openOrder, openFollow, submitFollowOrder, openCustomOrder, randomCustomCode, submitCustomOrder, getOrderResolution, openPortfolioDialog, editPortfolioToday, savePortfolioModal, openManagement, closeOrder, saveOrder, claimVoucher, saveAdjustment, saveResolution, savePortfolio, saveStore, saveManager, saveClient, switchView, syncHash };
   },
 }).mount('#app');

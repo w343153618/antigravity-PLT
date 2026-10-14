@@ -33,6 +33,24 @@ export interface RegistryStrategy {
   getResolution(date: string): ResolutionEvent | undefined;
 }
 
+export function isOrderHit(selectedCode: string, settlementCode: string, betMode?: string): boolean {
+  if (!betMode || betMode === 'DIRECT') {
+    return selectedCode === settlementCode;
+  }
+  return [...selectedCode].sort().join('') === [...settlementCode].sort().join('');
+}
+
+export function getOrderQuota(selectedCode: string, baseQuota: number, betMode?: string): number {
+  if (!betMode || betMode === 'DIRECT') {
+    return baseQuota;
+  }
+  const digits = new Set(selectedCode);
+  if (digits.size === 2) {
+    return baseQuota === 1040 ? 346 : Math.round((baseQuota * 346) / 1040 * 100) / 100;
+  }
+  return baseQuota === 1040 ? 173 : Math.round((baseQuota * 173) / 1040 * 100) / 100;
+}
+
 export function createRegistryModule(db: AppDatabase, stores: StoreModule, strategy: RegistryStrategy) {
   function requireStore(id: string) {
     if (!stores.getStore(id)) throw new DomainError('Store does not exist', 404);
@@ -121,9 +139,11 @@ export function createRegistryModule(db: AppDatabase, stores: StoreModule, strat
         }
         db.insert('resolution', resolution.date, resolution);
         const bills = allOrders().filter(({ orderSlip }) => orderSlip.date === resolution.date).map(({ orderSlip, managerId }) => {
+          const isHit = isOrderHit(orderSlip.selectedCode, resolution.settlementCode, orderSlip.betMode);
+          const quotaPerUnit = getOrderQuota(orderSlip.selectedCode, resolution.quotaPerUnit, orderSlip.betMode);
           const result = calculateSettlement({
             totalAmount: orderSlip.totalAmount, quantity: orderSlip.quantity,
-            quotaPerUnit: resolution.quotaPerUnit, isHit: orderSlip.selectedCode === resolution.settlementCode,
+            quotaPerUnit, isHit,
             adoptedStrategy: orderSlip.adoptedStrategy,
           });
           const bill: SettlementBill = {

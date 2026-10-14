@@ -1,5 +1,6 @@
 export {
   ThreeDigitCodeSchema,
+  BetModeSchema,
   OutcomeStatusSchema,
   VoucherStatusSchema,
   StrategyPortfolioSchema,
@@ -15,6 +16,7 @@ export { SettlementInputSchema, SettlementResultSchema } from './settlement.ts';
 export type { SettlementInput, SettlementResult } from './settlement.ts';
 export type {
   ThreeDigitCode,
+  BetMode,
   OutcomeStatus,
   StrategyPortfolio,
   OrderSlip,
